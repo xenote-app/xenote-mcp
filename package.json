@@ -4,7 +4,10 @@
   "description": "MCP relay server for Xenote — bridges Claude Code to Xenote browser tabs",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "start:emu": "XENOTE_AUTH_URL=http://localhost:3000/mcp-auth node index.js",
+    "build": "gcloud builds submit --tag gcr.io/xenote-app/xenote-mcp",
+    "deploy": "gcloud run deploy xenote-mcp --image gcr.io/xenote-app/xenote-mcp --port 3459 --allow-unauthenticated --session-affinity --region us-central1"
   },
   "author": "Ashwin Hamal",
   "license": "ISC",
