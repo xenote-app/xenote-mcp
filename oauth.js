@@ -1,20 +1,58 @@
 const { randomUUID, createHash } = require("crypto");
 const { XENOTE_AUTH_URL } = require("./config");
 
-// In-memory auth code store: code → { token, codeChallenge, redirectUri, expiresAt }
-const authCodes = {};
+// In-memory stores
+const authCodes = {}; // code → { token, codeChallenge, redirectUri, expiresAt }
+const clients = {}; // client_id → { client_name, redirect_uris, ... }
+
+function getBaseUrl(req) {
+  var host = req.get("host");
+  var proto = host.indexOf("localhost") === 0 ? "http" : "https";
+  return proto + "://" + host;
+}
 
 function register(app) {
+  // Protected Resource Metadata (RFC 9728)
+  app.get("/.well-known/oauth-protected-resource", function (req, res) {
+    var baseUrl = getBaseUrl(req);
+    res.json({
+      resource: baseUrl,
+      authorization_servers: [baseUrl],
+      bearer_methods_supported: ["header"],
+    });
+  });
+
+  // Authorization Server Metadata (RFC 8414)
   app.get("/.well-known/oauth-authorization-server", function (req, res) {
-    var baseUrl = req.protocol + "://" + req.get("host");
+    var baseUrl = getBaseUrl(req);
     res.json({
       issuer: baseUrl,
       authorization_endpoint: baseUrl + "/authorize",
       token_endpoint: baseUrl + "/token",
+      registration_endpoint: baseUrl + "/register",
       response_types_supported: ["code"],
       grant_types_supported: ["authorization_code"],
       code_challenge_methods_supported: ["S256"],
       token_endpoint_auth_methods_supported: ["none"],
+    });
+  });
+
+  // Dynamic Client Registration (RFC 7591)
+  app.post("/register", function (req, res) {
+    var clientId = randomUUID();
+    var clientName = req.body.client_name || "unknown";
+    var redirectUris = req.body.redirect_uris || [];
+
+    clients[clientId] = {
+      client_name: clientName,
+      redirect_uris: redirectUris,
+    };
+
+    res.status(201).json({
+      client_id: clientId,
+      client_name: clientName,
+      redirect_uris: redirectUris,
+      token_endpoint_auth_method: "none",
     });
   });
 
@@ -24,8 +62,7 @@ function register(app) {
     var codeChallenge = req.query.code_challenge || "";
     var codeChallengeMethod = req.query.code_challenge_method || "";
 
-    var callbackBase =
-      req.protocol + "://" + req.get("host") + "/authorize/callback";
+    var callbackBase = getBaseUrl(req) + "/authorize/callback";
     var params = [
       "redirect_uri=" + encodeURIComponent(redirectUri),
       "state=" + encodeURIComponent(state),

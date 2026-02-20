@@ -14,11 +14,30 @@ function extractToken(req) {
   return null;
 }
 
+function sendUnauthorized(req, res) {
+  var baseUrl = getBaseUrl(req);
+  res
+    .status(401)
+    .set(
+      "WWW-Authenticate",
+      'Bearer resource_metadata="' +
+        baseUrl +
+        '/.well-known/oauth-protected-resource"',
+    )
+    .json({ error: "Unauthorized" });
+}
+
+function getBaseUrl(req) {
+  var host = req.get("host");
+  var proto = host.indexOf("localhost") === 0 ? "http" : "https";
+  return proto + "://" + host;
+}
+
 function register(app) {
   app.post("/mcp", function (req, res) {
     var token = extractToken(req);
     if (!token) {
-      res.status(401).json({ error: "Missing Authorization header" });
+      sendUnauthorized(req, res);
       return;
     }
 
@@ -69,7 +88,7 @@ function register(app) {
   app.get("/mcp", function (req, res) {
     var token = extractToken(req);
     if (!token) {
-      res.status(401).json({ error: "Missing Authorization header" });
+      sendUnauthorized(req, res);
       return;
     }
     var session = getSession(token);
@@ -84,7 +103,7 @@ function register(app) {
   app.delete("/mcp", function (req, res) {
     var token = extractToken(req);
     if (!token) {
-      res.status(401).json({ error: "Missing Authorization header" });
+      sendUnauthorized(req, res);
       return;
     }
     var session = getSession(token);
