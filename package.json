@@ -1,20 +1,20 @@
 {
   "name": "xenote-mcp",
   "version": "1.0.0",
-  "description": "MCP relay server for Xenote — bridges Claude Code to Xenote browser tabs",
+  "description": "MCP server for Xenote — direct Firestore backend",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "start:emu": "XENOTE_AUTH_URL=http://localhost:3000/mcp-auth node index.js",
+    "start:emu": "XENOTE_EMU=true XENOTE_AUTH_URL=http://localhost:3000/mcp-auth node index.js",
     "build": "gcloud builds submit --tag gcr.io/xenote-app/xenote-mcp",
     "deploy": "gcloud run deploy xenote-mcp --image gcr.io/xenote-app/xenote-mcp --port 3459 --allow-unauthenticated --session-affinity --region us-central1"
   },
   "author": "Ashwin Hamal",
   "license": "ISC",
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
     "cors": "^2.8.5",
     "express": "^4.18.2",
-    "socket.io": "^4.8.1",
-    "@modelcontextprotocol/sdk": "^1.26.0"
+    "firebase": "^11.0.0"
   }
 }
