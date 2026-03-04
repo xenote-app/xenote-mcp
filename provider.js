@@ -17,6 +17,7 @@ var {
   addDoc,
   updateDoc,
   deleteDoc,
+  serverTimestamp,
 } = require("firebase/firestore");
 
 function createProvider(db) {
@@ -223,6 +224,23 @@ function createProvider(db) {
     return snap.exists() ? snap.data() : null;
   }
 
+  // ── Presence ───────────────────────────────────────────────────────────
+
+  async function setPresence(uid, data) {
+    var presenceData = {
+      toolName: data.toolName || null,
+      lastSeen: serverTimestamp(),
+      connected: true,
+    };
+    if (data.path !== undefined) presenceData.path = data.path;
+    if (data.clientName) presenceData.clientName = data.clientName;
+    await setDoc(doc(db, "mcpPresence", uid), presenceData, { merge: true });
+  }
+
+  async function clearPresence(uid) {
+    await deleteDoc(doc(db, "mcpPresence", uid));
+  }
+
   return {
     fetchPath: fetchPath,
     fetchDomain: fetchDomain,
@@ -241,6 +259,8 @@ function createProvider(db) {
     fetchVersion: fetchVersion,
     updateVersion: _updateVersion,
     fetchUserInfo: fetchUserInfo,
+    setPresence: setPresence,
+    clearPresence: clearPresence,
   };
 }
 

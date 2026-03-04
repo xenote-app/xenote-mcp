@@ -225,6 +225,54 @@ async function fetchFolderContent(ctx, domainId, folderId, path) {
   };
 }
 
+// ── Default Settings (mirrors frontend Policies) ────────────────────────────
+
+var defaultImportMap = {
+  react: "/libraries/react.development.18.2.0.mjs",
+  "react-dom": "/libraries/react-dom.development.18.mjs",
+};
+
+var DEFAULT_SETTINGS = {
+  text: { alignment: null, spellCheck: true, css: "", columns: null },
+  code: {
+    layout: "", isHiddenOnPublish: false, isReadOnly: false,
+    autoHeight: true, height: 300, hasLineNumbers: false,
+    lineWrapping: true, title: "", hasDivider: false,
+  },
+  file: {
+    isBase64: false, isPulled: false, contentType: null,
+    mode: null, filename: "", tabMode: null,
+  },
+  "web-runner": {
+    title: "", layout: "dynamic", fixedWidth: 640, fixedHeight: 320,
+    alignment: "center", autoHeight: false, height: 320, hasBorder: false,
+    runtime: "standard", target: "", classToRender: "",
+    importMap: defaultImportMap, useSystemStyles: true,
+    isWidget: false, autorun: true,
+  },
+  "box-runner": {
+    command: "", autoHeight: true, height: null, filename: null,
+    displayEnv: false, wordWrap: true, pullFiles: [],
+  },
+  "kernel-runner": {
+    tabMode: "4s", hasLineNumbers: false, lineWrapping: true,
+    maxOutputHeight: 1000, syncFiles: true,
+  },
+  images: {
+    galleryType: "grid", widthMode: "content", aspectRatio: null,
+    alignment: "center", hasBorder: false,
+  },
+  table: { styling: null, title: "", filename: null },
+  iframe: {
+    embedUrl: "", widthMode: "content", aspectRatio: "16:9",
+    alignment: "center", hasBorder: false,
+  },
+  excalidraw: {
+    maxWidth: null, percentWidth: 100, caption: "",
+    alignment: "center", hasBorder: false,
+  },
+};
+
 // ── Mutation Tools ───────────────────────────────────────────────────────────
 
 async function element_create(args, ctx) {
@@ -237,16 +285,14 @@ async function element_create(args, ctx) {
   var parentId = args.parentId;
   var afterId = args.afterId;
 
+  var defaults = DEFAULT_SETTINGS[type] || {};
   var data = { type: type, version: 0 };
   if (content !== undefined) data.content = content;
-  if (settings) data.settings = settings;
+  data.settings = Object.assign({}, defaults, settings || {});
   if (parentId) data.parentId = parentId;
 
   if (type === "file") {
-    data.settings = Object.assign({}, data.settings, {
-      filename: (settings && settings.filename) || "untitled.js",
-      isPulled: (settings && settings.isPulled) || false,
-    });
+    if (!data.settings.filename) data.settings.filename = "untitled.js";
     var fileResult = await ctx.provider.createElement({
       domainId: domainId,
       articleId: articleId,

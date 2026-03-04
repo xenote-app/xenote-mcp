@@ -126,21 +126,27 @@ function register(app) {
         var sid = transport.sessionId;
         console.log("[transport] closed:", sid);
         if (sid && sessions[sid]) {
+          if (sessions[sid].clearPresence) {
+            sessions[sid].clearPresence().catch(function () {});
+          }
           sessions[sid].cleanup();
           delete sessions[sid];
         }
       };
 
-      var server = createMCPServer({
+      var mcp = createMCPServer({
         uid: sessionApp.uid,
         db: sessionApp.db,
         functions: sessionApp.functions,
       });
 
-      server.connect(transport).then(function () {
+      mcp.server.connect(transport).then(function () {
         var sid = transport.sessionId;
         console.log("[POST /mcp] server connected, handling init request");
-        if (sid && sessions[sid]) sessions[sid].server = server;
+        if (sid && sessions[sid]) {
+          sessions[sid].server = mcp.server;
+          sessions[sid].clearPresence = mcp.clearPresence;
+        }
         transport.handleRequest(req, res, req.body);
       });
       return;

@@ -17,7 +17,7 @@ var tools = [
   {
     name: "fetch",
     description:
-      "Fetch your live content. '/' lists workspaces, '/workspace' lists folder contents, '/workspace/article' returns article metadata + element summaries.",
+      "Fetch your live content. '/' lists workspaces, '/workspace' lists folder contents, '/workspace/article' returns article metadata + element summaries. Tip: read the guides (xenote://guides/*) before creating or modifying elements.",
     inputSchema: {
       type: "object",
       properties: {
@@ -62,7 +62,7 @@ var tools = [
   {
     name: "element_create",
     description:
-      "Create a new element in the article. File elements MUST have a parentId pointing to a code element — create the parent first. Read the 'elements' guide for type details.",
+      "Create a new element. Read the guides for full details on each type.",
     inputSchema: {
       type: "object",
       properties: {
@@ -81,10 +81,21 @@ var tools = [
             "table",
             "excalidraw",
           ],
-          description: "Element type",
+          description:
+            "Element type. Per-type requirements:\n" +
+            "text: content is HTML (<p>, <h2>, <strong>, <math>, etc), not markdown. Don't add a title — the article title is already displayed. settings: { alignment?, columns?, css?, spellCheck? }\n" +
+            "code: read xenote://guides/code-and-files before use. container for file children — don't put code in content. settings: { layout: \"collapsed\" | \"\" }\n" +
+            "file: read xenote://guides/code-and-files before use. requires parentId (code element ID) and settings: { filename (required), isPulled? }\n" +
+            "web-runner: read xenote://guides/frontend before use. create code+files first. settings: { target (required, .jsx filename), importMap?, isWidget?, layout?, height?, autoHeight? }\n" +
+            "box-runner: read xenote://guides/backend before use. settings: { command (required, e.g. \"node app.js\") }\n" +
+            "kernel-runner: read xenote://guides/backend before use. content is Python code, no parentId needed\n" +
+            "images: uses entries not content. settings: { galleryType?, widthMode?, aspectRatio?, alignment?, hasBorder? }\n" +
+            "table: uses entries for columns/rows. settings: { styling?, title?, filename? }\n" +
+            "iframe: settings: { embedUrl (required), widthMode?, aspectRatio?, alignment?, hasBorder? }\n" +
+            "excalidraw: content is JSON.stringify of elements array. settings: { maxWidth?, percentWidth?, caption?, alignment?, hasBorder? }",
         },
         content: { type: "string", description: "Initial content" },
-        settings: { type: "object", description: "Element settings" },
+        settings: { type: "object", description: "Element settings (see type description for per-type fields)" },
         parentId: {
           type: "string",
           description: "Parent element ID (required for file elements)",

@@ -72,6 +72,14 @@ function createMCPServer(sessionCtx) {
       };
     }
 
+    // Update presence — track where the AI is focused
+    var focusPath = args.articlePath || (name !== "public_fetch" ? args.path : null) || null;
+    if (focusPath) {
+      var clientVersion = server.getClientVersion();
+      var clientName = clientVersion ? clientVersion.name : null;
+      provider.setPresence(ctx.uid, { toolName: name, path: focusPath, clientName: clientName }).catch(function () {});
+    }
+
     try {
       var result = await handler(args, ctx);
       return {
@@ -130,7 +138,12 @@ function createMCPServer(sessionCtx) {
     };
   });
 
-  return server;
+  return {
+    server: server,
+    clearPresence: function () {
+      return provider.clearPresence(ctx.uid);
+    },
+  };
 }
 
 module.exports = { createMCPServer };
