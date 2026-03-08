@@ -62,10 +62,13 @@ function sendUnauthorized(req, res) {
 
 function register(app) {
   app.post("/mcp", async function (req, res) {
-    console.log("[POST /mcp] headers:", JSON.stringify({
-      auth: req.headers["authorization"] ? "Bearer ..." : "(none)",
-      session: req.headers["mcp-session-id"] || "(none)",
-    }));
+    console.log(
+      "[POST /mcp] headers:",
+      JSON.stringify({
+        auth: req.headers["authorization"] ? "Bearer ..." : "(none)",
+        session: req.headers["mcp-session-id"] || "(none)",
+      }),
+    );
     console.log("[POST /mcp] body:", JSON.stringify(req.body));
 
     var token = extractToken(req);
@@ -82,6 +85,23 @@ function register(app) {
       console.log("[POST /mcp] existing session:", sessionId);
       sessions[sessionId].transport.handleRequest(req, res, req.body);
       return;
+    }
+
+    // Stale session — per MCP spec, return 404 so client re-initializes
+    if (sessionId && !sessions[sessionId] && !isInitializeRequest(req.body)) {
+      console.log("[POST /mcp] stale session, not init → 404");
+      res.status(404).json({
+        jsonrpc: "2.0",
+        error: { code: -32000, message: "Session not found" },
+        id: null,
+      });
+      return;
+    }
+
+    // Stale session but client is re-initializing — accept it
+    if (sessionId && !sessions[sessionId] && isInitializeRequest(req.body)) {
+      console.log("[POST /mcp] stale session, accepting reinitialize");
+      sessionId = null;
     }
 
     // New session — initialize
@@ -152,16 +172,23 @@ function register(app) {
       return;
     }
 
-    console.log("[POST /mcp] bad request — no session, not init");
+    // No session, not init — bad request
+    console.log("[POST /mcp] no session, not init → 400");
     res.status(400).json({
       jsonrpc: "2.0",
-      error: { code: -32000, message: "Bad Request: No valid session" },
+      error: {
+        code: -32000,
+        message: "Bad Request: Missing session or initialize",
+      },
       id: null,
     });
   });
 
   app.get("/mcp", async function (req, res) {
-    console.log("[GET /mcp] session:", req.headers["mcp-session-id"] || "(none)");
+    console.log(
+      "[GET /mcp] session:",
+      req.headers["mcp-session-id"] || "(none)",
+    );
     var token = extractToken(req);
     if (!token) {
       sendUnauthorized(req, res);
@@ -171,13 +198,20 @@ function register(app) {
     if (sessionId && sessions[sessionId]) {
       sessions[sessionId].transport.handleRequest(req, res);
     } else {
-      console.log("[GET /mcp] invalid session");
-      res.status(400).send("Invalid or missing session ID");
+      console.log("[GET /mcp] session not found → 404");
+      res.status(404).json({
+        jsonrpc: "2.0",
+        error: { code: -32000, message: "Session not found" },
+        id: null,
+      });
     }
   });
 
   app.delete("/mcp", async function (req, res) {
-    console.log("[DELETE /mcp] session:", req.headers["mcp-session-id"] || "(none)");
+    console.log(
+      "[DELETE /mcp] session:",
+      req.headers["mcp-session-id"] || "(none)",
+    );
     var token = extractToken(req);
     if (!token) {
       sendUnauthorized(req, res);
@@ -187,8 +221,12 @@ function register(app) {
     if (sessionId && sessions[sessionId]) {
       sessions[sessionId].transport.handleRequest(req, res);
     } else {
-      console.log("[DELETE /mcp] invalid session");
-      res.status(400).send("Invalid or missing session ID");
+      console.log("[DELETE /mcp] session not found → 404");
+      res.status(404).json({
+        jsonrpc: "2.0",
+        error: { code: -32000, message: "Session not found" },
+        id: null,
+      });
     }
   });
 }
