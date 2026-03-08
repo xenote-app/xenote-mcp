@@ -18,6 +18,12 @@ var tools = [
     name: "get_guide",
     description:
       "Read a Xenote guide. Available guides: overview, elements, code-and-files, frontend, backend, widget. Always read the relevant guide before creating complex elements.",
+    annotations: {
+      title: "Read Guide",
+      readOnlyHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -40,7 +46,13 @@ var tools = [
   {
     name: "fetch",
     description:
-      "Fetch your live content. '/' lists workspaces, '/workspace' lists folder contents, '/workspace/article' returns article metadata + element summaries.",
+      "Fetch your live content. '/' lists workspaces, '/workspace' lists folder contents, '/workspace/article' returns article metadata + element summaries. Articles include an editorUrl — share it with the user so they can view the article.",
+    annotations: {
+      title: "Fetch Content",
+      readOnlyHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -56,7 +68,13 @@ var tools = [
   {
     name: "public_fetch",
     description:
-      "Fetch published content (yours or anyone's). Returns the currently published version, or a specific version with @slug suffix.",
+      "Fetch published content (yours or anyone's). Returns the currently published version, or a specific version with @slug suffix. Returns a publicUrl — share it with the user.",
+    annotations: {
+      title: "Fetch Published Content",
+      readOnlyHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -73,6 +91,12 @@ var tools = [
     name: "element_get",
     description:
       "Get full content, settings, and version of a single element by ID. Use this to read file content that fetch only summarizes.",
+    annotations: {
+      title: "Get Element",
+      readOnlyHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -86,6 +110,11 @@ var tools = [
     name: "element_create",
     description:
       "Create a new element. Use get_guide to read full details before creating complex elements.",
+    annotations: {
+      title: "Create Element",
+      destructiveHint: false,
+      openWorldHint: false,
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -139,6 +168,12 @@ var tools = [
     name: "element_update",
     description:
       "Replace element content or settings entirely. Use for settings changes, small elements, or full rewrites. For surgical code edits, prefer element_patch.",
+    annotations: {
+      title: "Update Element",
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -165,6 +200,12 @@ var tools = [
     name: "element_patch",
     description:
       "Performs exact string replacements in element content. Use for surgical code edits. The edit will FAIL if old_string is not found or is not unique.",
+    annotations: {
+      title: "Patch Element",
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -198,6 +239,11 @@ var tools = [
     name: "element_delete",
     description:
       "Delete an element and all its children. Deleting a code element also removes its file elements.",
+    annotations: {
+      title: "Delete Element",
+      destructiveHint: true,
+      openWorldHint: false,
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -211,6 +257,12 @@ var tools = [
     name: "element_move",
     description:
       "Move an element to a new position in the article layout. Set afterId to null to move to the start.",
+    annotations: {
+      title: "Move Element",
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -228,6 +280,12 @@ var tools = [
     name: "article_update",
     description:
       "Update article title, description, context, settings, or layout.",
+    annotations: {
+      title: "Update Article",
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -256,6 +314,12 @@ var tools = [
     name: "workspace_updateContext",
     description:
       "Update the workspace's project context — a persistent note visible to agents across all articles.",
+    annotations: {
+      title: "Update Workspace Context",
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -271,7 +335,12 @@ var tools = [
   {
     name: "version",
     description:
-      "Manage article version snapshots. Actions: create, list, update, delete, revert, publish, unpublish.",
+      "Manage article version snapshots. Actions: create, list, update, delete, revert, publish, unpublish. Publishing returns a publicUrl — share it with the user.",
+    annotations: {
+      title: "Manage Versions",
+      destructiveHint: true,
+      openWorldHint: false,
+    },
     inputSchema: {
       type: "object",
       properties: {
@@ -304,7 +373,12 @@ var tools = [
   {
     name: "folder",
     description:
-      "Manage folders and articles. Actions: createArticle, createFolder, deleteArticle, deleteFolder, move, renameSlug.",
+      "Manage folders and articles. Actions: createArticle, createFolder, deleteArticle, deleteFolder, move, renameSlug. createArticle returns an editorUrl — share it with the user.",
+    annotations: {
+      title: "Manage Folders",
+      destructiveHint: true,
+      openWorldHint: false,
+    },
     inputSchema: {
       type: "object",
       properties: {

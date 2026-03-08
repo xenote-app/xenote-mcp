@@ -86,6 +86,7 @@ async function fetch_handler(args, ctx) {
     type: "article",
     id: articleId,
     path: path,
+    editorUrl: "https://www.xenote.com/workspaces" + path,
     title: article ? article.title : null,
     description: article ? article.description : null,
     articleContext: article ? article.articleContext || "" : "",
@@ -126,6 +127,7 @@ async function public_fetch_handler(args, ctx) {
     return {
       type: "article",
       path: args.path,
+      publicUrl: "https://xenote.com/" + basePath,
       title: ver.article ? ver.article.title : null,
       versionId: ver.id,
       slug: ver.slug,
@@ -164,6 +166,7 @@ async function public_fetch_handler(args, ctx) {
     return {
       type: "article",
       path: args.path,
+      publicUrl: "https://xenote.com/" + basePath,
       title: version.article ? version.article.title : null,
       versionId: version.id,
       slug: version.slug,
@@ -707,12 +710,17 @@ async function version_handler(args, ctx) {
         versionId: versionId,
       });
     }
-    return {
+    var versionResult = {
       versionId: versionId,
       label: label,
       slug: slug,
       published: isPublic,
     };
+    if (isPublic) {
+      versionResult.publicUrl =
+        "https://xenote.com/" + args.articlePath.replace(/^\//, "");
+    }
+    return versionResult;
   }
 
   if (action === "delete") {
@@ -797,7 +805,12 @@ async function folder_handler(args, ctx) {
       description: args.description,
       layoutType: args.layoutType,
     });
-    return result.data;
+    var createResult = result.data;
+    if (args.slug && args.path) {
+      createResult.editorUrl =
+        "https://www.xenote.com/workspaces" + args.path + "/" + args.slug;
+    }
+    return createResult;
   }
 
   if (action === "createFolder") {

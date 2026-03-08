@@ -45,7 +45,17 @@ var handlerMap = {
 function createMCPServer(sessionCtx) {
   var server = new MCPServer(
     { name: "xenote", version: "2.0.0" },
-    { capabilities: { tools: {}, resources: {} } },
+    {
+      capabilities: { tools: {}, resources: {} },
+      instructions:
+        "You are connected to Xenote, a content platform for creating interactive articles with rich elements (text, code, live runners, images, tables, diagrams). " +
+        "Articles live in workspaces organized by folders. Articles can be published as versioned snapshots.\n\n" +
+        "URL patterns:\n" +
+        "- Editor: https://www.xenote.com/workspaces/{workspace}/{article}\n" +
+        "- Published: https://xenote.com/{workspace}/{article}\n\n" +
+        "When you fetch or create an article, share the editorUrl with the user. When you publish, share the publicUrl.\n\n" +
+        "Always call get_guide before creating complex elements like code+files, web-runner, or box-runner.",
+    },
   );
 
   var provider = createProvider(sessionCtx.db);
