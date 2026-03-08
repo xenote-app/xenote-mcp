@@ -6,8 +6,17 @@
  */
 
 var { httpsCallable } = require("firebase/functions");
+var guides = require("./guides");
 
 // ── Read-only Tools ──────────────────────────────────────────────────────────
+
+async function get_guide_handler(args) {
+  var guide = args.guide;
+  if (!guides[guide]) {
+    throw new Error("Guide not found: " + guide);
+  }
+  return guides[guide];
+}
 
 async function fetch_handler(args, ctx) {
   var path = args.path;
@@ -15,7 +24,8 @@ async function fetch_handler(args, ctx) {
   // Root: list workspaces
   if (path === "/" || path === "") {
     var userInfo = await ctx.provider.fetchUserInfo(ctx.uid);
-    var domainOrder = userInfo && userInfo.domainOrder ? userInfo.domainOrder : [];
+    var domainOrder =
+      userInfo && userInfo.domainOrder ? userInfo.domainOrder : [];
     var workspaces = [];
     for (var i = 0; i < domainOrder.length; i++) {
       var d = await ctx.provider.fetchDomain(domainOrder[i]);
@@ -38,9 +48,16 @@ async function fetch_handler(args, ctx) {
 
   // Article: return metadata + ordered element summaries
   var articleId = pathData.articleId;
-  var article = await ctx.provider.fetchArticle({ domainId: domainId, articleId: articleId });
-  var elements = await ctx.provider.fetchArticleElements({ domainId: domainId, articleId: articleId });
-  var layout = article && article.layout ? article.layout : { order: [], type: "scroll" };
+  var article = await ctx.provider.fetchArticle({
+    domainId: domainId,
+    articleId: articleId,
+  });
+  var elements = await ctx.provider.fetchArticleElements({
+    domainId: domainId,
+    articleId: articleId,
+  });
+  var layout =
+    article && article.layout ? article.layout : { order: [], type: "scroll" };
   var order = layout.order || [];
 
   var byId = {};
@@ -48,7 +65,8 @@ async function fetch_handler(args, ctx) {
   var childrenOf = {};
   for (var k = 0; k < elements.length; k++) {
     if (elements[k].parentId) {
-      if (!childrenOf[elements[k].parentId]) childrenOf[elements[k].parentId] = [];
+      if (!childrenOf[elements[k].parentId])
+        childrenOf[elements[k].parentId] = [];
       childrenOf[elements[k].parentId].push(elements[k]);
     }
   }
@@ -123,7 +141,12 @@ async function public_fetch_handler(args, ctx) {
   if (!pathData) throw new Error("Path not found: " + args.path);
 
   if (pathData.type === "folder") {
-    return await fetchFolderContent(ctx, pathData.domainId, pathData.folderId, args.path);
+    return await fetchFolderContent(
+      ctx,
+      pathData.domainId,
+      pathData.folderId,
+      args.path,
+    );
   }
 
   if (pathData.type === "article") {
@@ -179,9 +202,18 @@ async function element_get(args, ctx) {
 }
 
 async function fetchFolderContent(ctx, domainId, folderId, path) {
-  var folder = await ctx.provider.fetchFolder({ domainId: domainId, folderId: folderId });
-  var childFolders = await ctx.provider.fetchChildrenFolders({ domainId: domainId, folderId: folderId });
-  var childArticles = await ctx.provider.fetchChildrenArticles({ domainId: domainId, folderId: folderId });
+  var folder = await ctx.provider.fetchFolder({
+    domainId: domainId,
+    folderId: folderId,
+  });
+  var childFolders = await ctx.provider.fetchChildrenFolders({
+    domainId: domainId,
+    folderId: folderId,
+  });
+  var childArticles = await ctx.provider.fetchChildrenArticles({
+    domainId: domainId,
+    folderId: folderId,
+  });
 
   var children = {};
   for (var i = 0; i < childFolders.length; i++) {
@@ -235,41 +267,78 @@ var defaultImportMap = {
 var DEFAULT_SETTINGS = {
   text: { alignment: null, spellCheck: true, css: "", columns: null },
   code: {
-    layout: "", isHiddenOnPublish: false, isReadOnly: false,
-    autoHeight: true, height: 300, hasLineNumbers: false,
-    lineWrapping: true, title: "", hasDivider: false,
+    layout: "",
+    isHiddenOnPublish: false,
+    isReadOnly: false,
+    autoHeight: true,
+    height: 300,
+    hasLineNumbers: false,
+    lineWrapping: true,
+    title: "",
+    hasDivider: false,
   },
   file: {
-    isBase64: false, isPulled: false, contentType: null,
-    mode: null, filename: "", tabMode: null,
+    isBase64: false,
+    isPulled: false,
+    contentType: null,
+    mode: null,
+    filename: "",
+    tabMode: null,
   },
   "web-runner": {
-    title: "", layout: "dynamic", fixedWidth: 640, fixedHeight: 320,
-    alignment: "center", autoHeight: false, height: 320, hasBorder: false,
-    runtime: "standard", target: "", classToRender: "",
-    importMap: defaultImportMap, useSystemStyles: true,
-    isWidget: false, autorun: true,
+    title: "",
+    layout: "dynamic",
+    fixedWidth: 640,
+    fixedHeight: 320,
+    alignment: "center",
+    autoHeight: false,
+    height: 320,
+    hasBorder: false,
+    runtime: "standard",
+    target: "",
+    classToRender: "",
+    importMap: defaultImportMap,
+    useSystemStyles: true,
+    isWidget: false,
+    autorun: true,
   },
   "box-runner": {
-    command: "", autoHeight: true, height: null, filename: null,
-    displayEnv: false, wordWrap: true, pullFiles: [],
+    command: "",
+    autoHeight: true,
+    height: null,
+    filename: null,
+    displayEnv: false,
+    wordWrap: true,
+    pullFiles: [],
   },
   "kernel-runner": {
-    tabMode: "4s", hasLineNumbers: false, lineWrapping: true,
-    maxOutputHeight: 1000, syncFiles: true,
+    tabMode: "4s",
+    hasLineNumbers: false,
+    lineWrapping: true,
+    maxOutputHeight: 1000,
+    syncFiles: true,
   },
   images: {
-    galleryType: "grid", widthMode: "content", aspectRatio: null,
-    alignment: "center", hasBorder: false,
+    galleryType: "grid",
+    widthMode: "content",
+    aspectRatio: null,
+    alignment: "center",
+    hasBorder: false,
   },
   table: { styling: null, title: "", filename: null },
   iframe: {
-    embedUrl: "", widthMode: "content", aspectRatio: "16:9",
-    alignment: "center", hasBorder: false,
+    embedUrl: "",
+    widthMode: "content",
+    aspectRatio: "16:9",
+    alignment: "center",
+    hasBorder: false,
   },
   excalidraw: {
-    maxWidth: null, percentWidth: 100, caption: "",
-    alignment: "center", hasBorder: false,
+    maxWidth: null,
+    percentWidth: 100,
+    caption: "",
+    alignment: "center",
+    hasBorder: false,
   },
 };
 
@@ -315,7 +384,11 @@ async function element_create(args, ctx) {
     if (afterIndex >= 0) insertAt = afterIndex + 1;
   }
   order.splice(insertAt, 0, result.id);
-  await ctx.resolve.updateLayout(domainId, articleId, Object.assign({}, layout, { order: order }));
+  await ctx.resolve.updateLayout(
+    domainId,
+    articleId,
+    Object.assign({}, layout, { order: order }),
+  );
 
   return { id: result.id, type: type, insertAt: insertAt };
 }
@@ -334,10 +407,15 @@ async function element_update(args, ctx) {
   });
   var version = (el.version || 0) + 1;
 
-  if (args.expectedVersion !== undefined && el.version !== args.expectedVersion) {
+  if (
+    args.expectedVersion !== undefined &&
+    el.version !== args.expectedVersion
+  ) {
     throw new Error(
       "VERSION_CONFLICT: Element has been modified (expected v" +
-        args.expectedVersion + ", now v" + el.version +
+        args.expectedVersion +
+        ", now v" +
+        el.version +
         "). Fetch current content and retry.",
     );
   }
@@ -374,10 +452,15 @@ async function element_patch(args, ctx) {
   var originalContent = el.content || "";
   var version = (el.version || 0) + 1;
 
-  if (args.expectedVersion !== undefined && el.version !== args.expectedVersion) {
+  if (
+    args.expectedVersion !== undefined &&
+    el.version !== args.expectedVersion
+  ) {
     throw new Error(
       "VERSION_CONFLICT: Element has been modified (expected v" +
-        args.expectedVersion + ", now v" + el.version +
+        args.expectedVersion +
+        ", now v" +
+        el.version +
         "). Fetch current content and retry.",
     );
   }
@@ -385,7 +468,8 @@ async function element_patch(args, ctx) {
   var error = verifyEdits(originalContent, edits);
   if (error) {
     throw new Error(
-      "EDIT_FAILED: " + error.message +
+      "EDIT_FAILED: " +
+        error.message +
         ". Call element_get to see current content, then retry.",
     );
   }
@@ -415,7 +499,11 @@ async function element_delete(args, ctx) {
     return e.parentId === id;
   });
 
-  await ctx.provider.deleteElement({ domainId: domainId, articleId: articleId, elementId: id });
+  await ctx.provider.deleteElement({
+    domainId: domainId,
+    articleId: articleId,
+    elementId: id,
+  });
   for (var i = 0; i < children.length; i++) {
     await ctx.provider.deleteElement({
       domainId: domainId,
@@ -425,12 +513,16 @@ async function element_delete(args, ctx) {
   }
 
   var layout = await ctx.resolve.fetchArticleLayout(domainId, articleId);
-  var order = (layout.order || []).filter(function (oid) { return oid !== id; });
+  var order = (layout.order || []).filter(function (oid) {
+    return oid !== id;
+  });
   var updatedLayout = Object.assign({}, layout, { order: order });
   if (updatedLayout.grid && updatedLayout.grid.elements) {
     var gridElements = Object.assign({}, updatedLayout.grid.elements);
     delete gridElements[id];
-    updatedLayout.grid = Object.assign({}, updatedLayout.grid, { elements: gridElements });
+    updatedLayout.grid = Object.assign({}, updatedLayout.grid, {
+      elements: gridElements,
+    });
   }
   await ctx.resolve.updateLayout(domainId, articleId, updatedLayout);
 
@@ -460,7 +552,11 @@ async function element_move(args, ctx) {
   }
   order.splice(destIndex, 0, id);
 
-  await ctx.resolve.updateLayout(domainId, articleId, Object.assign({}, layout, { order: order }));
+  await ctx.resolve.updateLayout(
+    domainId,
+    articleId,
+    Object.assign({}, layout, { order: order }),
+  );
 
   return { id: id, fromIndex: sourceIndex, toIndex: destIndex };
 }
@@ -473,14 +569,26 @@ async function article_update(args, ctx) {
   var update = {};
   if (args.title !== undefined) update.title = args.title;
   if (args.description !== undefined) update.description = args.description;
-  if (args.articleContext !== undefined) update.articleContext = args.articleContext;
+  if (args.articleContext !== undefined)
+    update.articleContext = args.articleContext;
   if (args.settings !== undefined) {
-    var article = await ctx.provider.fetchArticle({ domainId: domainId, articleId: articleId });
-    update.settings = Object.assign({}, (article && article.settings) || {}, args.settings);
+    var article = await ctx.provider.fetchArticle({
+      domainId: domainId,
+      articleId: articleId,
+    });
+    update.settings = Object.assign(
+      {},
+      (article && article.settings) || {},
+      args.settings,
+    );
   }
 
   if (Object.keys(update).length > 0) {
-    await ctx.provider.updateArticle({ domainId: domainId, articleId: articleId, data: update });
+    await ctx.provider.updateArticle({
+      domainId: domainId,
+      articleId: articleId,
+      data: update,
+    });
   }
 
   if (args.layoutType || args.layoutConfig) {
@@ -488,12 +596,21 @@ async function article_update(args, ctx) {
     var updatedLayout = Object.assign({}, layout);
     if (args.layoutType) updatedLayout.type = args.layoutType;
     if (args.layoutConfig) {
-      updatedLayout.config = Object.assign({}, layout.config || {}, args.layoutConfig);
+      updatedLayout.config = Object.assign(
+        {},
+        layout.config || {},
+        args.layoutConfig,
+      );
     }
     await ctx.resolve.updateLayout(domainId, articleId, updatedLayout);
   }
 
-  return { applied: Object.assign({}, update, { layoutType: args.layoutType, layoutConfig: args.layoutConfig }) };
+  return {
+    applied: Object.assign({}, update, {
+      layoutType: args.layoutType,
+      layoutConfig: args.layoutConfig,
+    }),
+  };
 }
 
 async function workspace_updateContext(args, ctx) {
@@ -516,19 +633,27 @@ async function workspace_updateContext(args, ctx) {
 // ── Version Handler (via Cloud Functions) ────────────────────────────────────
 
 async function version_handler(args, ctx) {
-  if (!args.articlePath) throw new Error("articlePath is required for version operations");
+  if (!args.articlePath)
+    throw new Error("articlePath is required for version operations");
   var pathData = await ctx.resolve.resolvePath(args.articlePath);
   var domainId = pathData.domainId;
   var articleId = pathData.articleId;
   var action = args.action;
 
   if (action === "list") {
-    var versions = await ctx.provider.fetchVersions({ domainId: domainId, articleId: articleId });
+    var versions = await ctx.provider.fetchVersions({
+      domainId: domainId,
+      articleId: articleId,
+    });
     return {
       versions: versions.map(function (v) {
         return {
-          id: v.id, label: v.label, slug: v.slug,
-          notes: v.notes, isPublic: v.isPublic || false, createdAt: v.createdAt,
+          id: v.id,
+          label: v.label,
+          slug: v.slug,
+          notes: v.notes,
+          isPublic: v.isPublic || false,
+          createdAt: v.createdAt,
         };
       }),
     };
@@ -539,7 +664,10 @@ async function version_handler(args, ctx) {
     if (args.label !== undefined) data.label = args.label;
     if (args.notes !== undefined) data.notes = args.notes;
     await ctx.provider.updateVersion({
-      domainId: domainId, articleId: articleId, versionId: args.versionId, data: data,
+      domainId: domainId,
+      articleId: articleId,
+      versionId: args.versionId,
+      data: data,
     });
     return { versionId: args.versionId, updated: data };
   }
@@ -549,48 +677,87 @@ async function version_handler(args, ctx) {
     var label = args.label || "Updates - " + new Date().toLocaleDateString();
     var slug = args.slug;
     if (!slug) {
-      var article = await ctx.provider.fetchArticle({ domainId: domainId, articleId: articleId });
-      slug = nextVersionSlug(article && article.latestVersion || "");
+      var article = await ctx.provider.fetchArticle({
+        domainId: domainId,
+        articleId: articleId,
+      });
+      slug = nextVersionSlug((article && article.latestVersion) || "");
     }
     var isPublic = args.isPublic !== false;
-    var result = await httpsCallable(ctx.functions, "createVersionCall")({
-      domainId: domainId, articleId: articleId,
-      label: label, slug: slug, notes: args.notes, isPublic: isPublic,
+    var result = await httpsCallable(
+      ctx.functions,
+      "createVersionCall",
+    )({
+      domainId: domainId,
+      articleId: articleId,
+      label: label,
+      slug: slug,
+      notes: args.notes,
+      isPublic: isPublic,
     });
     var versionId = result.data.versionId;
     // Auto-publish when isPublic (matches frontend behavior)
     if (isPublic) {
-      await httpsCallable(ctx.functions, "publishVersionCall")({
-        domainId: domainId, articleId: articleId, versionId: versionId,
+      await httpsCallable(
+        ctx.functions,
+        "publishVersionCall",
+      )({
+        domainId: domainId,
+        articleId: articleId,
+        versionId: versionId,
       });
     }
-    return { versionId: versionId, label: label, slug: slug, published: isPublic };
+    return {
+      versionId: versionId,
+      label: label,
+      slug: slug,
+      published: isPublic,
+    };
   }
 
   if (action === "delete") {
-    await httpsCallable(ctx.functions, "deleteVersionCall")({
-      domainId: domainId, articleId: articleId, versionId: args.versionId,
+    await httpsCallable(
+      ctx.functions,
+      "deleteVersionCall",
+    )({
+      domainId: domainId,
+      articleId: articleId,
+      versionId: args.versionId,
     });
     return { versionId: args.versionId };
   }
 
   if (action === "revert") {
-    await httpsCallable(ctx.functions, "revertToVersionCall")({
-      domainId: domainId, articleId: articleId, versionId: args.versionId,
+    await httpsCallable(
+      ctx.functions,
+      "revertToVersionCall",
+    )({
+      domainId: domainId,
+      articleId: articleId,
+      versionId: args.versionId,
     });
     return { versionId: args.versionId, revertedAt: Date.now() };
   }
 
   if (action === "publish") {
-    await httpsCallable(ctx.functions, "publishVersionCall")({
-      domainId: domainId, articleId: articleId, versionId: args.versionId,
+    await httpsCallable(
+      ctx.functions,
+      "publishVersionCall",
+    )({
+      domainId: domainId,
+      articleId: articleId,
+      versionId: args.versionId,
     });
     return { versionId: args.versionId };
   }
 
   if (action === "unpublish") {
-    await httpsCallable(ctx.functions, "unpublishArticleCall")({
-      domainId: domainId, articleId: articleId,
+    await httpsCallable(
+      ctx.functions,
+      "unpublishArticleCall",
+    )({
+      domainId: domainId,
+      articleId: articleId,
     });
     return { articleId: articleId };
   }
@@ -615,53 +782,96 @@ async function folder_handler(args, ctx) {
 
   if (action === "createArticle") {
     var parentId = args.parentId || resolvedParentId;
-    if (!parentId) throw new Error("parentId is required, or articlePath must point to a folder");
-    var result = await httpsCallable(ctx.functions, "createArticleCall")({
-      domainId: domainId, parentId: parentId,
-      title: args.title, slug: args.slug,
-      description: args.description, layoutType: args.layoutType,
+    if (!parentId)
+      throw new Error(
+        "parentId is required, or articlePath must point to a folder",
+      );
+    var result = await httpsCallable(
+      ctx.functions,
+      "createArticleCall",
+    )({
+      domainId: domainId,
+      parentId: parentId,
+      title: args.title,
+      slug: args.slug,
+      description: args.description,
+      layoutType: args.layoutType,
     });
     return result.data;
   }
 
   if (action === "createFolder") {
     var folderParentId = args.parentId || resolvedParentId;
-    if (!folderParentId) throw new Error("parentId is required, or articlePath must point to a folder");
-    var result2 = await httpsCallable(ctx.functions, "createFolderCall")({
-      domainId: domainId, parentId: folderParentId,
-      title: args.title, slug: args.slug,
+    if (!folderParentId)
+      throw new Error(
+        "parentId is required, or articlePath must point to a folder",
+      );
+    var result2 = await httpsCallable(
+      ctx.functions,
+      "createFolderCall",
+    )({
+      domainId: domainId,
+      parentId: folderParentId,
+      title: args.title,
+      slug: args.slug,
     });
     return result2.data;
   }
 
   if (action === "deleteArticle") {
-    await httpsCallable(ctx.functions, "deleteArticleCall")({
-      domainId: domainId, articleId: args.articleId,
+    await httpsCallable(
+      ctx.functions,
+      "deleteArticleCall",
+    )({
+      domainId: domainId,
+      articleId: args.articleId,
     });
     return { articleId: args.articleId };
   }
 
   if (action === "deleteFolder") {
-    await httpsCallable(ctx.functions, "deleteFolderCall")({
-      domainId: domainId, folderId: args.folderId,
+    await httpsCallable(
+      ctx.functions,
+      "deleteFolderCall",
+    )({
+      domainId: domainId,
+      folderId: args.folderId,
     });
     return { folderId: args.folderId };
   }
 
   if (action === "move") {
-    await httpsCallable(ctx.functions, "moveToFolderCall")({
-      domainId: domainId, itemId: args.itemId,
-      itemType: args.itemType, newParentId: args.newParentId,
+    await httpsCallable(
+      ctx.functions,
+      "moveToFolderCall",
+    )({
+      domainId: domainId,
+      itemId: args.itemId,
+      itemType: args.itemType,
+      newParentId: args.newParentId,
     });
-    return { itemId: args.itemId, itemType: args.itemType, newParentId: args.newParentId };
+    return {
+      itemId: args.itemId,
+      itemType: args.itemType,
+      newParentId: args.newParentId,
+    };
   }
 
   if (action === "renameSlug") {
-    await httpsCallable(ctx.functions, "renameSlugCall")({
-      domainId: domainId, slug: args.slug,
-      articleId: args.articleId, folderId: args.folderId,
+    await httpsCallable(
+      ctx.functions,
+      "renameSlugCall",
+    )({
+      domainId: domainId,
+      slug: args.slug,
+      articleId: args.articleId,
+      folderId: args.folderId,
     });
-    return { slug: args.slug, articleId: args.articleId, folderId: args.folderId };
+    return {
+      slug: args.slug,
+      articleId: args.articleId,
+      folderId: args.folderId,
+    };
   }
 
   throw new Error("Unknown folder action: " + action);
@@ -680,10 +890,16 @@ function summarizeElement(el, children) {
       summary.preview = (el.content || "").slice(0, 100);
       break;
     case "code":
-      summary.settings = { layout: el.settings ? el.settings.layout : undefined };
+      summary.settings = {
+        layout: el.settings ? el.settings.layout : undefined,
+      };
       summary.files = (children || [])
-        .filter(function (c) { return c.type === "file"; })
-        .map(function (c) { return c.settings ? c.settings.filename : null; });
+        .filter(function (c) {
+          return c.type === "file";
+        })
+        .map(function (c) {
+          return c.settings ? c.settings.filename : null;
+        });
       break;
     case "file":
       summary.filename = el.settings ? el.settings.filename : null;
@@ -717,13 +933,21 @@ function verifyEdits(content, edits) {
   for (var i = 0; i < edits.length; i++) {
     var edit = edits[i];
     if (!content.includes(edit.old_string)) {
-      return { edit: edit, message: "old_string not found in content. Make sure it matches exactly (including whitespace and indentation)." };
+      return {
+        edit: edit,
+        message:
+          "old_string not found in content. Make sure it matches exactly (including whitespace and indentation).",
+      };
     }
     if (!edit.replace_all) {
       var firstIndex = content.indexOf(edit.old_string);
       var secondIndex = content.indexOf(edit.old_string, firstIndex + 1);
       if (secondIndex !== -1) {
-        return { edit: edit, message: "old_string is not unique — found multiple occurrences. Include more surrounding context or use replace_all." };
+        return {
+          edit: edit,
+          message:
+            "old_string is not unique — found multiple occurrences. Include more surrounding context or use replace_all.",
+        };
       }
     }
   }
@@ -747,10 +971,13 @@ function nextVersionSlug(latest) {
   var m = latest.match(versionRegex);
   if (!m) return "0.0.0-d.0";
   var devNum = m[5] !== undefined ? parseInt(m[5], 10) : -1;
-  return m[1] + "." + m[2] + "." + m[3] + "-" + (m[4] || "d") + "." + (devNum + 1);
+  return (
+    m[1] + "." + m[2] + "." + m[3] + "-" + (m[4] || "d") + "." + (devNum + 1)
+  );
 }
 
 module.exports = {
+  get_guide: get_guide_handler,
   fetch: fetch_handler,
   public_fetch: public_fetch_handler,
   element_get: element_get,

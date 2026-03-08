@@ -38,7 +38,7 @@ Python kernel runner. See **xenote://guides/backend** for full details.
 
 ## images
 Image gallery.
-- entries: [{ filename, caption }]
+- entries: [{ filename (required, local filename (upload or pulled) or https URL), caption? }]
 - settings: { galleryType? (null|"classic"), widthMode? ("small"|"medium"|"full"), aspectRatio? ("auto"|"1.7778"|"1.5000"|"1.3333"|"1.0000"), alignment? ("left"|"center"|"right"), hasBorder? }
 
 ## table

@@ -6,7 +6,14 @@ var mcpRoutes = require("./mcp-routes");
 
 var app = express();
 app.set("trust proxy", true);
-app.use(cors());
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+    exposedHeaders: ["MCP-Session-Id"],
+    allowedHeaders: ["Content-Type", "Authorization", "MCP-Session-Id"],
+  }),
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 

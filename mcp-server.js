@@ -27,6 +27,7 @@ var resources = Object.keys(guides).map(function (key) {
 
 // Map tool names to handler functions
 var handlerMap = {
+  get_guide: handlers.get_guide,
   fetch: handlers.fetch,
   public_fetch: handlers.public_fetch,
   element_get: handlers.element_get,
@@ -73,11 +74,18 @@ function createMCPServer(sessionCtx) {
     }
 
     // Update presence — track where the AI is focused
-    var focusPath = args.articlePath || (name !== "public_fetch" ? args.path : null) || null;
+    var focusPath =
+      args.articlePath || (name !== "public_fetch" ? args.path : null) || null;
     if (focusPath) {
       var clientVersion = server.getClientVersion();
       var clientName = clientVersion ? clientVersion.name : null;
-      provider.setPresence(ctx.uid, { toolName: name, path: focusPath, clientName: clientName }).catch(function () {});
+      provider
+        .setPresence(ctx.uid, {
+          toolName: name,
+          path: focusPath,
+          clientName: clientName,
+        })
+        .catch(function () {});
     }
 
     try {
@@ -93,7 +101,8 @@ function createMCPServer(sessionCtx) {
     } catch (e) {
       var message = e.message;
       if (e.code === "permission-denied") {
-        message = "Access denied. You do not have permission to perform this operation.";
+        message =
+          "Access denied. You do not have permission to perform this operation.";
       }
       return {
         isError: true,
