@@ -17,6 +17,8 @@ var {
   addDoc,
   updateDoc,
   deleteDoc,
+  deleteField,
+  onSnapshot,
   serverTimestamp,
 } = require("firebase/firestore");
 
@@ -226,6 +228,10 @@ function createProvider(db) {
 
   // ── Presence ───────────────────────────────────────────────────────────
 
+  async function getPresence(uid) {
+    var snap = await getDoc(doc(db, "mcpPresence", uid));
+    return snap.exists() ? snap.data() : null;
+  }
   async function setPresence(uid, data) {
     var presenceData = {
       toolName: data.toolName || null,
@@ -239,6 +245,48 @@ function createProvider(db) {
 
   async function clearPresence(uid) {
     await deleteDoc(doc(db, "mcpPresence", uid));
+  }
+
+  // ── Run Requests ───────────────────────────────────────────────────────
+
+  async function createRunRequest(uid, data) {
+    var requestId = Math.random().toString(36).slice(2);
+    var ref = doc(db, "mcpPresence", uid, "requests", requestId);
+    await setDoc(ref, {
+      ...data,
+      status: "pending",
+      createdAt: serverTimestamp(),
+    });
+    return requestId;
+  }
+
+  function waitForRunResult(uid, requestId, timeoutMs) {
+    return new Promise(function (resolve, reject) {
+      var timer = setTimeout(function () {
+        unsubscribe();
+        reject(new Error("Run request timed out. Is a browser tab attached?"));
+      }, timeoutMs || 30000);
+
+      var unsubscribe = onSnapshot(
+        doc(db, "mcpPresence", uid, "requests", requestId),
+        function (snap) {
+          var data = snap.data();
+          if (!data || data.status === "pending") return;
+          clearTimeout(timer);
+          unsubscribe();
+          resolve(data);
+        },
+        function (err) {
+          clearTimeout(timer);
+          unsubscribe();
+          reject(err);
+        },
+      );
+    });
+  }
+
+  async function deleteRunRequest(uid, requestId) {
+    await deleteDoc(doc(db, "mcpPresence", uid, "requests", requestId));
   }
 
   return {
@@ -259,9 +307,12 @@ function createProvider(db) {
     fetchVersion: fetchVersion,
     updateVersion: _updateVersion,
     fetchUserInfo: fetchUserInfo,
+    getPresence: getPresence,
     setPresence: setPresence,
     clearPresence: clearPresence,
-  };
-}
+    createRunRequest: createRunRequest,
+    waitForRunResult: waitForRunResult,
+    deleteRunRequest: deleteRunRequest,
+  };}
 
 module.exports = { createProvider };

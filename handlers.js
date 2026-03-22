@@ -1003,4 +1003,59 @@ module.exports = {
   workspace_updateContext: workspace_updateContext,
   version: version_handler,
   folder: folder_handler,
+  element_run: element_run,
 };
+
+async function element_run(args, ctx) {
+  var articlePath = args.articlePath;
+  var elementId = args.id;
+  if (!articlePath) throw new Error("articlePath is required");
+  if (!elementId) throw new Error("id is required");
+
+  // Check if a browser tab is attached
+  var presenceSnap = await ctx.provider.getPresence(ctx.uid);
+  if (!presenceSnap || !presenceSnap.attachedTabId) {
+    throw new Error(
+      "No browser tab is attached. Open Xenote in a browser and click Attach on the presence indicator.",
+    );
+  }
+
+  var pathData = await ctx.resolve.resolvePath(articlePath);
+
+  // Verify element exists and is a runner type
+  var element = await ctx.provider.fetchElement({
+    domainId: pathData.domainId,
+    articleId: pathData.articleId,
+    elementId: elementId,
+  });
+  var runnerTypes = ["web-runner", "box-runner", "kernel-runner"];
+  if (runnerTypes.indexOf(element.type) === -1) {
+    throw new Error(
+      "element_run only works on runner elements (" +
+        runnerTypes.join(", ") +
+        "). This element is type: " +
+        element.type,
+    );
+  }
+
+  // Create run request and wait for browser to execute
+  var requestId = await ctx.provider.createRunRequest(ctx.uid, {
+    articlePath: articlePath,
+    elementId: elementId,
+    elementType: element.type,
+  });
+
+  try {
+    var result = await ctx.provider.waitForRunResult(ctx.uid, requestId, 10000);
+    // Clean up
+    ctx.provider.deleteRunRequest(ctx.uid, requestId).catch(function () {});
+
+    if (result.status === "error") {
+      throw new Error(result.error || "Execution failed");
+    }
+    return result.result || "Executed successfully";
+  } catch (e) {
+    ctx.provider.deleteRunRequest(ctx.uid, requestId).catch(function () {});
+    throw e;
+  }
+}

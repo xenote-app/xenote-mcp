@@ -40,6 +40,7 @@ var handlerMap = {
   workspace_updateContext: handlers.workspace_updateContext,
   version: handlers.version,
   folder: handlers.folder,
+  element_run: handlers.element_run,
 };
 
 function createMCPServer(sessionCtx) {

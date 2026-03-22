@@ -413,6 +413,26 @@ var tools = [
       required: ["action"],
     },
   },
+  {
+    name: "element_run",
+    description:
+      "Run a runner element (web-runner, box-runner, or kernel-runner) in the attached browser tab. " +
+      "Requires a browser tab to be attached via the presence indicator. " +
+      "Returns the execution result or times out after 10 seconds.",
+    annotations: {
+      title: "Run Element",
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        articlePath: ARTICLE_PATH_PROP.articlePath,
+        id: { type: "string", description: "Element ID of the runner to execute" },
+      },
+      required: ["articlePath", "id"],
+    },
+  },
 ];
 
 module.exports = tools;
