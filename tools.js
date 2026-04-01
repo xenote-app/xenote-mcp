@@ -323,11 +323,11 @@ var tools = [
     },
   },
   {
-    name: "workspace_updateContext",
+    name: "workspace_update",
     description:
-      "Update the workspace's project context — a persistent note visible to agents across all articles.",
+      "Update workspace title or description.",
     annotations: {
-      title: "Update Workspace Context",
+      title: "Update Workspace",
       destructiveHint: false,
       idempotentHint: true,
       openWorldHint: false,
@@ -336,12 +336,10 @@ var tools = [
       type: "object",
       properties: {
         articlePath: ARTICLE_PATH_PROP.articlePath,
-        projectContext: {
-          type: "string",
-          description: "Project context text. Overwrites the previous value.",
-        },
+        title: { type: "string", description: "Workspace title" },
+        description: { type: "string", description: "Workspace description" },
       },
-      required: ["projectContext"],
+      required: [],
     },
   },
   {

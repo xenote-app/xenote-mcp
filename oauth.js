@@ -31,7 +31,7 @@ function register(app) {
       token_endpoint: baseUrl + "/token",
       registration_endpoint: baseUrl + "/register",
       response_types_supported: ["code"],
-      grant_types_supported: ["authorization_code"],
+      grant_types_supported: ["authorization_code", "refresh_token"],
       code_challenge_methods_supported: ["S256"],
       token_endpoint_auth_methods_supported: ["none"],
     });
@@ -113,6 +113,21 @@ function register(app) {
     var codeVerifier = req.body.code_verifier;
     var redirectUri = req.body.redirect_uri;
 
+    if (grantType === "refresh_token") {
+      var refreshToken = req.body.refresh_token;
+      if (!refreshToken || !refreshToken.startsWith("xnt_")) {
+        res.status(400).json({ error: "invalid_grant" });
+        return;
+      }
+      res.json({
+        access_token: refreshToken,
+        token_type: "Bearer",
+        expires_in: 3600,
+        refresh_token: refreshToken,
+      });
+      return;
+    }
+
     if (grantType !== "authorization_code") {
       res.status(400).json({ error: "unsupported_grant_type" });
       return;
@@ -152,6 +167,8 @@ function register(app) {
     res.json({
       access_token: token,
       token_type: "Bearer",
+      expires_in: 3600,
+      refresh_token: token,
     });
   });
 }

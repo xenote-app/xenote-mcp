@@ -17,11 +17,9 @@ var TOKEN_CACHE_TTL = 50 * 60 * 1000;
 async function resolveToken(token) {
   var cached = tokenCache[token];
   if (cached && Date.now() - cached.ts < TOKEN_CACHE_TTL) {
-    console.log("[resolveToken] cache hit");
     return cached.customToken;
   }
 
-  console.log("[resolveToken] calling authenticateMCPTokenCall...");
   var result = await httpsCallable(
     sharedFunctions,
     "authenticateMCPTokenCall",
@@ -29,7 +27,6 @@ async function resolveToken(token) {
 
   var customToken = result.data.customToken;
   tokenCache[token] = { customToken: customToken, ts: Date.now() };
-  console.log("[resolveToken] got custom token");
   return customToken;
 }
 
@@ -62,18 +59,8 @@ function sendUnauthorized(req, res) {
 
 function register(app) {
   app.post("/mcp", async function (req, res) {
-    console.log(
-      "[POST /mcp] headers:",
-      JSON.stringify({
-        auth: req.headers["authorization"] ? "Bearer ..." : "(none)",
-        session: req.headers["mcp-session-id"] || "(none)",
-      }),
-    );
-    console.log("[POST /mcp] body:", JSON.stringify(req.body));
-
     var token = extractToken(req);
     if (!token) {
-      console.log("[POST /mcp] no token → 401");
       sendUnauthorized(req, res);
       return;
     }
@@ -83,25 +70,13 @@ function register(app) {
     // Existing session — refresh auth if needed, then forward to transport
     if (sessionId && sessions[sessionId]) {
       var session = sessions[sessionId];
-      var authAge = Math.round((Date.now() - session.authTs) / 60000);
-      console.log("[POST /mcp] existing session:", sessionId, "| authAge:", authAge + "min", "| ttl:", Math.round(TOKEN_CACHE_TTL / 60000) + "min");
-
-      // Debug: check actual Firebase token state
-      if (session.getTokenDebug) {
-        session.getTokenDebug().then(function (info) {
-          console.log("[POST /mcp] token debug:", JSON.stringify(info));
-        });
-      }
-
       if (Date.now() - session.authTs > TOKEN_CACHE_TTL) {
-        console.log("[POST /mcp] refreshing auth for session:", sessionId);
         delete tokenCache[session.token];
         resolveToken(session.token)
           .then(function (newCustomToken) {
             return session.refresh(newCustomToken);
           })
           .then(function () {
-            console.log("[POST /mcp] auth refreshed");
             session.authTs = Date.now();
             session.transport.handleRequest(req, res, req.body);
           })
@@ -117,7 +92,6 @@ function register(app) {
 
     // Stale session — per MCP spec, return 404 so client re-initializes
     if (sessionId && !sessions[sessionId] && !isInitializeRequest(req.body)) {
-      console.log("[POST /mcp] stale session, not init → 404");
       res.status(404).json({
         jsonrpc: "2.0",
         error: { code: -32000, message: "Session not found" },
@@ -128,13 +102,11 @@ function register(app) {
 
     // Stale session but client is re-initializing — accept it
     if (sessionId && !sessions[sessionId] && isInitializeRequest(req.body)) {
-      console.log("[POST /mcp] stale session, accepting reinitialize");
       sessionId = null;
     }
 
     // New session — initialize
     if (!sessionId && isInitializeRequest(req.body)) {
-      console.log("[POST /mcp] new session — initializing...");
       var customToken;
       try {
         customToken = await resolveToken(token);
@@ -145,7 +117,6 @@ function register(app) {
       }
 
       var appId = randomUUID();
-      console.log("[POST /mcp] creating session app:", appId);
       var sessionApp;
       try {
         sessionApp = await createSessionApp(appId, customToken);
@@ -154,21 +125,18 @@ function register(app) {
         res.status(500).json({ error: "Failed to authenticate: " + e.message });
         return;
       }
-      console.log("[POST /mcp] signed in as uid:", sessionApp.uid);
 
       var transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: function () {
           return randomUUID();
         },
         onsessioninitialized: function (sid) {
-          console.log("[POST /mcp] session initialized:", sid);
           sessions[sid] = {
             transport: transport,
             server: null,
             cleanup: sessionApp.cleanup,
             token: token,
             refresh: sessionApp.refresh,
-            getTokenDebug: sessionApp.getTokenDebug,
             authTs: Date.now(),
           };
         },
@@ -176,7 +144,6 @@ function register(app) {
 
       transport.onclose = function () {
         var sid = transport.sessionId;
-        console.log("[transport] closed:", sid);
         if (sid && sessions[sid]) {
           if (sessions[sid].clearPresence) {
             sessions[sid].clearPresence().catch(function () {});
@@ -194,7 +161,6 @@ function register(app) {
 
       mcp.server.connect(transport).then(function () {
         var sid = transport.sessionId;
-        console.log("[POST /mcp] server connected, handling init request");
         if (sid && sessions[sid]) {
           sessions[sid].server = mcp.server;
           sessions[sid].clearPresence = mcp.clearPresence;
@@ -205,7 +171,6 @@ function register(app) {
     }
 
     // No session, not init — bad request
-    console.log("[POST /mcp] no session, not init → 400");
     res.status(400).json({
       jsonrpc: "2.0",
       error: {
@@ -217,41 +182,6 @@ function register(app) {
   });
 
   app.get("/mcp", async function (req, res) {
-    console.log(
-      "[GET /mcp] session:",
-      req.headers["mcp-session-id"] || "(none)",
-    );
-    var token = extractToken(req);
-    if (!token) {
-      sendUnauthorized(req, res);
-      return;
-    }
-    var sessionId = req.headers["mcp-session-id"];
-    if (sessionId && sessions[sessionId]) {
-      var session = sessions[sessionId];
-      var authAge = Math.round((Date.now() - session.authTs) / 60000);
-      console.log("[GET /mcp] session:", sessionId, "| authAge:", authAge + "min");
-      if (session.getTokenDebug) {
-        session.getTokenDebug().then(function (info) {
-          console.log("[GET /mcp] token debug:", JSON.stringify(info));
-        });
-      }
-      session.transport.handleRequest(req, res);
-    } else {
-      console.log("[GET /mcp] session not found → 404");
-      res.status(404).json({
-        jsonrpc: "2.0",
-        error: { code: -32000, message: "Session not found" },
-        id: null,
-      });
-    }
-  });
-
-  app.delete("/mcp", async function (req, res) {
-    console.log(
-      "[DELETE /mcp] session:",
-      req.headers["mcp-session-id"] || "(none)",
-    );
     var token = extractToken(req);
     if (!token) {
       sendUnauthorized(req, res);
@@ -261,7 +191,24 @@ function register(app) {
     if (sessionId && sessions[sessionId]) {
       sessions[sessionId].transport.handleRequest(req, res);
     } else {
-      console.log("[DELETE /mcp] session not found → 404");
+      res.status(404).json({
+        jsonrpc: "2.0",
+        error: { code: -32000, message: "Session not found" },
+        id: null,
+      });
+    }
+  });
+
+  app.delete("/mcp", async function (req, res) {
+    var token = extractToken(req);
+    if (!token) {
+      sendUnauthorized(req, res);
+      return;
+    }
+    var sessionId = req.headers["mcp-session-id"];
+    if (sessionId && sessions[sessionId]) {
+      sessions[sessionId].transport.handleRequest(req, res);
+    } else {
       res.status(404).json({
         jsonrpc: "2.0",
         error: { code: -32000, message: "Session not found" },

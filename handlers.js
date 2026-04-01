@@ -29,7 +29,7 @@ async function fetch_handler(args, ctx) {
     var workspaces = [];
     for (var i = 0; i < domainOrder.length; i++) {
       var d = await ctx.provider.fetchDomain(domainOrder[i]);
-      if (d) workspaces.push({ slug: d.slug, title: d.title, id: d.id });
+      if (d) workspaces.push({ slug: d.slug, title: d.title, description: d.description || null, id: d.id });
     }
     return { type: "workspaces", workspaces: workspaces };
   }
@@ -266,10 +266,21 @@ async function fetchFolderContent(ctx, domainId, folderId, path) {
     items = Object.values(children);
   }
 
+  var title = folder ? folder.title : null;
+  var description = null;
+  if (domainId === folderId) {
+    var domain = await ctx.provider.fetchDomain(domainId);
+    if (domain) {
+      title = domain.title || title;
+      description = domain.description || null;
+    }
+  }
+
   return {
     type: "folder",
     path: path,
-    title: folder ? folder.title : null,
+    title: title,
+    description: description,
     items: items,
   };
 }
@@ -728,7 +739,7 @@ async function article_update(args, ctx) {
   };
 }
 
-async function workspace_updateContext(args, ctx) {
+async function workspace_update(args, ctx) {
   var domainId;
   if (args.articlePath) {
     var pathData = await ctx.resolve.resolvePath(args.articlePath);
@@ -737,12 +748,19 @@ async function workspace_updateContext(args, ctx) {
     domainId = ctx.uid;
   }
 
+  var update = {};
+  if (args.title !== undefined) update.title = args.title;
+  if (args.description !== undefined) update.description = args.description;
+
+  if (Object.keys(update).length === 0)
+    throw new Error("Nothing to update. Provide at least one of: title, description.");
+
   await ctx.provider.updateDomain({
     domainId: domainId,
-    data: { projectContext: args.projectContext },
+    data: update,
   });
 
-  return { applied: args.projectContext };
+  return { applied: update };
 }
 
 // ── Version Handler (via Cloud Functions) ────────────────────────────────────
@@ -1285,7 +1303,7 @@ module.exports = {
   element_delete: element_delete,
   element_move: element_move,
   article_update: article_update,
-  workspace_updateContext: workspace_updateContext,
+  workspace_update: workspace_update,
   version: version_handler,
   folder: folder_handler,
   element_run: element_run,

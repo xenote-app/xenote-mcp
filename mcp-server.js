@@ -37,7 +37,7 @@ var handlerMap = {
   element_delete: handlers.element_delete,
   element_move: handlers.element_move,
   article_update: handlers.article_update,
-  workspace_updateContext: handlers.workspace_updateContext,
+  workspace_update: handlers.workspace_update,
   version: handlers.version,
   folder: handlers.folder,
   element_run: handlers.element_run,
@@ -55,7 +55,8 @@ function createMCPServer(sessionCtx) {
         "- Editor: https://www.xenote.com/workspaces/{workspace}/{article}\n" +
         "- Published: https://xenote.com/{workspace}/{article}\n\n" +
         "When you fetch or create an article, share the editorUrl with the user. When you publish, share the publicUrl.\n\n" +
-        "Always call get_guide before creating complex elements like code+files, web-runner, or box-runner.",
+        "Always call get_guide before creating complex elements like code+files, web-runner, or box-runner.\n\n" +
+        "For working examples of all features, fetch /references.",
     },
   );
 
