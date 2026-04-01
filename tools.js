@@ -36,6 +36,7 @@ var tools = [
             "frontend",
             "backend",
             "widget",
+            "layout",
           ],
           description: "Guide name to read",
         },
@@ -141,10 +142,10 @@ var tools = [
             'web-runner: get_guide("frontend") before use. create code+files first. settings: { target (required, .jsx filename), importMap?, isWidget?, layout?, height?, autoHeight? }\n' +
             'box-runner: get_guide("backend") before use. settings: { command (required, e.g. "node app.js") }\n' +
             'kernel-runner: get_guide("backend") before use. content is Python code, no parentId needed\n' +
-            "images: uses entries not content. entries: [{ filename (required, local filename (upload or pulled) or https URL), caption? }]. settings: { galleryType?, widthMode?, aspectRatio?, alignment?, hasBorder? }\n" +
-            "table: uses entries for columns/rows. settings: { styling?, title?, filename? }\n" +
+            "images: uses entries not content. entries: [{ filename (required, local filename (upload or pulled) or https URL), caption? }]. settings: { galleryType?, widthMode?, aspectRatio?, alignment?, hasBorder?, fitting? ('cover'|'contain'), fillerColor? }\n" +
+            "table: uses entries for columns/rows. settings: { styling?, filename? }\n" +
             "iframe: settings: { embedUrl (required), widthMode?, aspectRatio?, alignment?, hasBorder? }\n" +
-            "excalidraw: content is JSON.stringify of elements array. settings: { maxWidth?, percentWidth?, caption?, alignment?, hasBorder? }",
+            "excalidraw: content is JSON.stringify of elements array. settings: { maxWidth?, percentWidth?, caption?, alignment?, hasBorder?, hasPadding?, backgroundColor? }",
         },
         content: { type: "string", description: "Initial content" },
         settings: {
@@ -256,7 +257,7 @@ var tools = [
   {
     name: "element_move",
     description:
-      "Move an element to a new position in the article layout. Set afterId to null to move to the start.",
+      "Move an element to a new position in the article layout. Use index for absolute positioning (0 = first), or afterId to place after a specific element. Set afterId to null to move to the start.",
     annotations: {
       title: "Move Element",
       destructiveHint: false,
@@ -268,6 +269,11 @@ var tools = [
       properties: {
         articlePath: ARTICLE_PATH_PROP.articlePath,
         id: { type: "string", description: "Element ID to move" },
+        index: {
+          type: "number",
+          description:
+            "Target position index (0-based). Takes priority over afterId.",
+        },
         afterId: {
           type: "string",
           description: "Move after this element ID (null = move to start)",
@@ -279,7 +285,7 @@ var tools = [
   {
     name: "article_update",
     description:
-      "Update article title, description, context, settings, or layout.",
+      "Update article title, description, context, settings, layout, or requiredArticles (prerequisites).",
     annotations: {
       title: "Update Article",
       destructiveHint: false,
@@ -295,6 +301,12 @@ var tools = [
         articleContext: {
           type: "string",
           description: "Agent-facing context notes about this article.",
+        },
+        requiredArticles: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "Array of article IDs that must be completed before this article is unlocked. Pass [] to clear.",
         },
         settings: { type: "object", description: "Article settings" },
         layoutType: {
@@ -373,7 +385,7 @@ var tools = [
   {
     name: "folder",
     description:
-      "Manage folders and articles. Actions: createArticle, createFolder, deleteArticle, deleteFolder, move, renameSlug. createArticle returns an editorUrl — share it with the user.",
+      "Manage folders and articles. Actions: createArticle, createFolder, deleteArticle, deleteFolder, move, reorder, addSection, editSection, deleteSection, renameSlug. createArticle returns an editorUrl — share it with the user. reorder moves any item (article, folder, or section) within the layout. Section actions manage grouping headers on the index page.",
     annotations: {
       title: "Manage Folders",
       destructiveHint: true,
@@ -395,6 +407,10 @@ var tools = [
             "deleteArticle",
             "deleteFolder",
             "move",
+            "reorder",
+            "addSection",
+            "editSection",
+            "deleteSection",
             "renameSlug",
           ],
           description: "The folder operation to perform",
@@ -409,6 +425,27 @@ var tools = [
         itemId: { type: "string" },
         itemType: { type: "string", enum: ["article", "folder"] },
         newParentId: { type: "string" },
+        sectionId: {
+          type: "string",
+          description: "Section ID (for editSection/deleteSection)",
+        },
+        displayMode: {
+          type: "string",
+          enum: ["list", "gallery"],
+          description: "Section display mode on public page",
+        },
+        showDesc: { type: "boolean", description: "Show article descriptions in section" },
+        showThumb: { type: "boolean", description: "Show article thumbnails in section" },
+        isHidden: { type: "boolean", description: "Hide section on public page" },
+        insertAt: { type: "number", description: "For addSection: position index to insert at" },
+        afterItemId: {
+          type: "string",
+          description: "For reorder: place item after this ID in the layout",
+        },
+        index: {
+          type: "number",
+          description: "For reorder: target position index (0-based)",
+        },
       },
       required: ["action"],
     },

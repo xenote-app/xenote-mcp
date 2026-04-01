@@ -72,6 +72,13 @@ function createProvider(db) {
     });
   }
 
+  async function _updateFolder({ domainId, folderId, data }) {
+    return await updateDoc(
+      doc(db, "domains", domainId, "folders", folderId),
+      data,
+    );
+  }
+
   // ── Articles ───────────────────────────────────────────────────────────
 
   async function fetchArticle({ domainId, articleId }) {
@@ -240,6 +247,7 @@ function createProvider(db) {
     };
     if (data.path !== undefined) presenceData.path = data.path;
     if (data.clientName) presenceData.clientName = data.clientName;
+    if (data.lastAction) presenceData.lastAction = data.lastAction;
     await setDoc(doc(db, "mcpPresence", uid), presenceData, { merge: true });
   }
 
@@ -294,6 +302,7 @@ function createProvider(db) {
     fetchDomain: fetchDomain,
     updateDomain: _updateDomain,
     fetchFolder: fetchFolder,
+    updateFolder: _updateFolder,
     fetchChildrenFolders: fetchChildrenFolders,
     fetchChildrenArticles: fetchChildrenArticles,
     fetchArticle: fetchArticle,

@@ -89,6 +89,7 @@ async function fetch_handler(args, ctx) {
     editorUrl: "https://www.xenote.com/workspaces" + path,
     title: article ? article.title : null,
     description: article ? article.description : null,
+    requiredArticles: article ? article.requiredArticles || [] : [],
     articleContext: article ? article.articleContext || "" : "",
     layout: { type: layout.type || "scroll", config: layout.config || null },
     elements: list,
@@ -181,6 +182,16 @@ async function public_fetch_handler(args, ctx) {
 }
 
 async function element_get(args, ctx) {
+  if (!args.articlePath)
+    throw new Error(
+      "Missing required param 'articlePath'. Got params: " +
+        Object.keys(args).join(", "),
+    );
+  if (!args.id)
+    throw new Error(
+      "Missing required param 'id'. Got params: " +
+        Object.keys(args).join(", "),
+    );
   var pathData = await ctx.resolve.resolvePath(args.articlePath);
   var el = await ctx.provider.fetchElement({
     domainId: pathData.domainId,
@@ -233,6 +244,7 @@ async function fetchFolderContent(ctx, domainId, folderId, path) {
       title: childArticles[j].title || null,
       description: childArticles[j].description || null,
       isPublished: !!childArticles[j].publishedVersionId,
+      requiredArticles: childArticles[j].requiredArticles || [],
     };
   }
 
@@ -243,9 +255,11 @@ async function fetchFolderContent(ctx, domainId, folderId, path) {
     for (var k = 0; k < layoutList.length; k++) {
       var item = layoutList[k];
       if (item.type === "section") {
-        items.push({ type: "section", title: item.title || null });
+        items.push({ type: "section", id: item.id, title: item.title || null });
       } else if (children[item.id]) {
-        items.push(children[item.id]);
+        var child = children[item.id];
+        child.id = item.id;
+        items.push(child);
       }
     }
   } else {
@@ -271,7 +285,6 @@ var DEFAULT_SETTINGS = {
   text: { alignment: null, spellCheck: true, css: "", columns: null },
   code: {
     layout: "",
-    isHiddenOnPublish: false,
     isReadOnly: false,
     autoHeight: true,
     height: 300,
@@ -291,11 +304,10 @@ var DEFAULT_SETTINGS = {
   "web-runner": {
     title: "",
     layout: "dynamic",
-    fixedWidth: 640,
-    fixedHeight: 320,
+    width: 640,
+    height: 320,
     alignment: "center",
     autoHeight: false,
-    height: 320,
     hasBorder: false,
     runtime: "standard",
     target: "",
@@ -304,6 +316,7 @@ var DEFAULT_SETTINGS = {
     useSystemStyles: true,
     isWidget: false,
     autorun: true,
+    allowFullscreen: false,
   },
   "box-runner": {
     command: "",
@@ -327,8 +340,10 @@ var DEFAULT_SETTINGS = {
     aspectRatio: null,
     alignment: "center",
     hasBorder: false,
+    fitting: "cover",
+    fillerColor: null,
   },
-  table: { styling: null, title: "", filename: null },
+  table: { styling: null, filename: null },
   iframe: {
     embedUrl: "",
     widthMode: "content",
@@ -342,20 +357,57 @@ var DEFAULT_SETTINGS = {
     caption: "",
     alignment: "center",
     hasBorder: false,
+    hasPadding: true,
+    backgroundColor: null,
   },
 };
 
 // ── Mutation Tools ───────────────────────────────────────────────────────────
 
 async function element_create(args, ctx) {
+  if (!args.articlePath)
+    throw new Error(
+      "Missing required param 'articlePath'. Got params: " +
+        Object.keys(args).join(", "),
+    );
+  if (!args.type)
+    throw new Error(
+      "Missing required param 'type'. Got params: " +
+        Object.keys(args).join(", "),
+    );
+
   var pathData = await ctx.resolve.resolvePath(args.articlePath);
   var domainId = pathData.domainId;
   var articleId = pathData.articleId;
   var type = args.type;
   var content = args.content;
-  var settings = args.settings;
+  var settings = typeof args.settings === "string" ? JSON.parse(args.settings) : args.settings;
   var parentId = args.parentId;
   var afterId = args.afterId;
+
+  // Validate parentId for file elements
+  if (type === "file" && !parentId) {
+    throw new Error(
+      "file elements require a parentId (the code element ID). " +
+        "Create a code element first, then create the file with parentId set to the code element's ID.",
+    );
+  }
+
+  // Validate parentId exists if provided
+  if (parentId) {
+    try {
+      var parentEl = await ctx.provider.fetchElement({
+        domainId: domainId,
+        articleId: articleId,
+        elementId: parentId,
+      });
+    } catch (e) {
+      throw new Error(
+        "parentId '" + parentId + "' not found in this article. " +
+          "Make sure the parent element exists before creating a child.",
+      );
+    }
+  }
 
   var defaults = DEFAULT_SETTINGS[type] || {};
   var data = { type: type, version: 0 };
@@ -397,6 +449,24 @@ async function element_create(args, ctx) {
 }
 
 async function element_update(args, ctx) {
+  if (!args.articlePath)
+    throw new Error(
+      "Missing required param 'articlePath'. Got params: " +
+        Object.keys(args).join(", "),
+    );
+  if (!args.id)
+    throw new Error(
+      "Missing required param 'id'. Got params: " +
+        Object.keys(args).join(", "),
+    );
+  if (!args.data) {
+    // Check if they passed content/settings at top level instead of inside data
+    var hint =
+      args.content !== undefined || args.settings !== undefined
+        ? " It looks like you passed content/settings at the top level — they must be nested inside 'data', e.g. { data: { content: ... } }."
+        : "";
+    throw new Error("Missing required param 'data'." + hint);
+  }
   var pathData = await ctx.resolve.resolvePath(args.articlePath);
   var domainId = pathData.domainId;
   var articleId = pathData.articleId;
@@ -426,8 +496,10 @@ async function element_update(args, ctx) {
   var updateData = { version: version };
   if (data.content !== undefined) updateData.content = data.content;
   if (data.entries !== undefined) updateData.entries = data.entries;
-  if (data.settings !== undefined)
-    updateData.settings = Object.assign({}, el.settings || {}, data.settings);
+  if (data.settings !== undefined) {
+    var mergeSettings = typeof data.settings === "string" ? JSON.parse(data.settings) : data.settings;
+    updateData.settings = Object.assign({}, el.settings || {}, mergeSettings);
+  }
   if (data.editorData !== undefined) updateData.editorData = data.editorData;
 
   await ctx.provider.updateElement({
@@ -441,6 +513,18 @@ async function element_update(args, ctx) {
 }
 
 async function element_patch(args, ctx) {
+  if (!args.articlePath)
+    throw new Error(
+      "Missing required param 'articlePath'. Got params: " +
+        Object.keys(args).join(", "),
+    );
+  if (!args.id)
+    throw new Error(
+      "Missing required param 'id'. Got params: " +
+        Object.keys(args).join(", "),
+    );
+  if (!args.edits || !Array.isArray(args.edits) || args.edits.length === 0)
+    throw new Error("Missing or empty 'edits' array.");
   var pathData = await ctx.resolve.resolvePath(args.articlePath);
   var domainId = pathData.domainId;
   var articleId = pathData.articleId;
@@ -533,11 +617,23 @@ async function element_delete(args, ctx) {
 }
 
 async function element_move(args, ctx) {
+  if (!args.articlePath)
+    throw new Error(
+      "Missing required param 'articlePath'. Got params: " +
+        Object.keys(args).join(", "),
+    );
+  if (!args.id)
+    throw new Error(
+      "Missing required param 'id'. Got params: " +
+        Object.keys(args).join(", "),
+    );
+
   var pathData = await ctx.resolve.resolvePath(args.articlePath);
   var domainId = pathData.domainId;
   var articleId = pathData.articleId;
   var id = args.id;
   var afterId = args.afterId;
+  var index = args.index;
 
   var layout = await ctx.resolve.fetchArticleLayout(domainId, articleId);
   var order = (layout.order || []).slice();
@@ -547,11 +643,21 @@ async function element_move(args, ctx) {
   order.splice(sourceIndex, 1);
 
   var destIndex;
-  if (afterId === null || afterId === undefined) {
-    destIndex = 0;
-  } else {
+  if (index !== undefined && index !== null) {
+    // Direct index positioning
+    destIndex = Math.max(0, Math.min(index, order.length));
+  } else if (afterId !== undefined && afterId !== null) {
+    // Position after a specific element
     var afterIndex = order.indexOf(afterId);
-    destIndex = afterIndex >= 0 ? afterIndex + 1 : order.length;
+    if (afterIndex < 0)
+      throw new Error(
+        "afterId '" + afterId + "' not found in layout order. " +
+          "Current order: [" + order.join(", ") + "]",
+      );
+    destIndex = afterIndex + 1;
+  } else {
+    // Neither specified — move to start
+    destIndex = 0;
   }
   order.splice(destIndex, 0, id);
 
@@ -574,7 +680,13 @@ async function article_update(args, ctx) {
   if (args.description !== undefined) update.description = args.description;
   if (args.articleContext !== undefined)
     update.articleContext = args.articleContext;
+  if (args.requiredArticles !== undefined) {
+    if (!Array.isArray(args.requiredArticles))
+      throw new Error("requiredArticles must be an array of article IDs.");
+    update.requiredArticles = args.requiredArticles;
+  }
   if (args.settings !== undefined) {
+    var articleSettings = typeof args.settings === "string" ? JSON.parse(args.settings) : args.settings;
     var article = await ctx.provider.fetchArticle({
       domainId: domainId,
       articleId: articleId,
@@ -582,7 +694,7 @@ async function article_update(args, ctx) {
     update.settings = Object.assign(
       {},
       (article && article.settings) || {},
-      args.settings,
+      articleSettings,
     );
   }
 
@@ -687,38 +799,65 @@ async function version_handler(args, ctx) {
       slug = nextVersionSlug((article && article.latestVersion) || "");
     }
     var isPublic = args.isPublic !== false;
-    var result = await httpsCallable(
-      ctx.functions,
-      "createVersionCall",
-    )({
-      domainId: domainId,
-      articleId: articleId,
-      label: label,
-      slug: slug,
-      notes: args.notes,
-      isPublic: isPublic,
-    });
-    var versionId = result.data.versionId;
-    // Auto-publish when isPublic (matches frontend behavior)
-    if (isPublic) {
-      await httpsCallable(
+    var result;
+    try {
+      result = await httpsCallable(
         ctx.functions,
-        "publishVersionCall",
+        "createVersionCall",
       )({
         domainId: domainId,
         articleId: articleId,
-        versionId: versionId,
+        label: label,
+        slug: slug,
+        notes: args.notes,
+        isPublic: isPublic,
       });
+    } catch (e) {
+      throw new Error(
+        "version create failed: " + (e.message || e.code || String(e)) +
+          ". Params sent: domainId=" + domainId +
+          ", articleId=" + articleId +
+          ", slug=" + slug +
+          ", isPublic=" + isPublic,
+      );
+    }
+    var version = result.data.version;
+    var versionId = version.id;
+    // Auto-publish when isPublic (matches frontend behavior)
+    if (isPublic) {
+      try {
+        await httpsCallable(
+          ctx.functions,
+          "publishVersionCall",
+        )({
+          domainId: domainId,
+          articleId: articleId,
+          versionId: versionId,
+        });
+      } catch (e) {
+        throw new Error(
+          "version created (id=" + versionId + ") but publish failed: " +
+            (e.message || e.code || String(e)),
+        );
+      }
     }
     var versionResult = {
       versionId: versionId,
-      label: label,
-      slug: slug,
+      label: version.label,
+      slug: version.slug,
+      notes: version.notes || null,
+      filenames: version.filenames || [],
+      dvMap: version.dvMap || null,
       published: isPublic,
     };
     if (isPublic) {
       versionResult.publicUrl =
         "https://xenote.com/" + args.articlePath.replace(/^\//, "");
+      ctx.provider.setPresence(ctx.uid, {
+        toolName: "version",
+        path: args.articlePath,
+        lastAction: { type: "published", label: version.label, slug: version.slug },
+      }).catch(function () {});
     }
     return versionResult;
   }
@@ -804,6 +943,7 @@ async function folder_handler(args, ctx) {
       slug: args.slug,
       description: args.description,
       layoutType: args.layoutType,
+      insertAt: args.insertAt,
     });
     var createResult = result.data;
     if (args.slug && args.path) {
@@ -867,6 +1007,151 @@ async function folder_handler(args, ctx) {
       itemId: args.itemId,
       itemType: args.itemType,
       newParentId: args.newParentId,
+    };
+  }
+
+  if (action === "addSection") {
+    if (!args.title) throw new Error("title is required for addSection");
+    var folder = await ctx.provider.fetchFolder({
+      domainId: domainId,
+      folderId: resolvedParentId,
+    });
+    if (!folder) throw new Error("Folder not found");
+    var layout = folder.layout || {};
+    var list = (layout.list || []).slice();
+
+    var sectionId = String(Date.now());
+    var section = {
+      type: "section",
+      id: sectionId,
+      title: args.title,
+      displayMode: args.displayMode || "list",
+      showDesc: args.showDesc !== undefined ? args.showDesc : false,
+      showThumb: args.showThumb !== undefined ? args.showThumb : false,
+      isHidden: args.isHidden !== undefined ? args.isHidden : false,
+    };
+
+    if (args.insertAt !== undefined && args.insertAt !== null) {
+      var idx = Math.max(0, Math.min(args.insertAt, list.length));
+      list.splice(idx, 0, section);
+    } else {
+      list.push(section);
+    }
+
+    await ctx.provider.updateFolder({
+      domainId: domainId,
+      folderId: resolvedParentId,
+      data: { layout: Object.assign({}, layout, { list: list }) },
+    });
+    return { sectionId: sectionId, title: args.title, insertAt: idx !== undefined ? idx : list.length - 1 };
+  }
+
+  if (action === "editSection") {
+    if (!args.sectionId) throw new Error("sectionId is required for editSection");
+    var folder = await ctx.provider.fetchFolder({
+      domainId: domainId,
+      folderId: resolvedParentId,
+    });
+    if (!folder) throw new Error("Folder not found");
+    var layout = folder.layout || {};
+    var list = (layout.list || []).slice();
+
+    var sectionIndex = -1;
+    for (var si = 0; si < list.length; si++) {
+      if (list[si].id === args.sectionId && list[si].type === "section") {
+        sectionIndex = si;
+        break;
+      }
+    }
+    if (sectionIndex < 0)
+      throw new Error("Section '" + args.sectionId + "' not found in folder layout.");
+
+    var updated = Object.assign({}, list[sectionIndex]);
+    if (args.title !== undefined) updated.title = args.title;
+    if (args.displayMode !== undefined) updated.displayMode = args.displayMode;
+    if (args.showDesc !== undefined) updated.showDesc = args.showDesc;
+    if (args.showThumb !== undefined) updated.showThumb = args.showThumb;
+    if (args.isHidden !== undefined) updated.isHidden = args.isHidden;
+    list[sectionIndex] = updated;
+
+    await ctx.provider.updateFolder({
+      domainId: domainId,
+      folderId: resolvedParentId,
+      data: { layout: Object.assign({}, layout, { list: list }) },
+    });
+    return { sectionId: args.sectionId, updated: updated };
+  }
+
+  if (action === "deleteSection") {
+    if (!args.sectionId) throw new Error("sectionId is required for deleteSection");
+    var folder = await ctx.provider.fetchFolder({
+      domainId: domainId,
+      folderId: resolvedParentId,
+    });
+    if (!folder) throw new Error("Folder not found");
+    var layout = folder.layout || {};
+    var list = (layout.list || []).filter(function (item) {
+      return item.id !== args.sectionId;
+    });
+
+    await ctx.provider.updateFolder({
+      domainId: domainId,
+      folderId: resolvedParentId,
+      data: { layout: Object.assign({}, layout, { list: list }) },
+    });
+    return { sectionId: args.sectionId };
+  }
+
+  if (action === "reorder") {
+    if (!args.itemId) throw new Error("itemId is required for reorder");
+    var folder = await ctx.provider.fetchFolder({
+      domainId: domainId,
+      folderId: resolvedParentId,
+    });
+    if (!folder) throw new Error("Folder not found");
+    var layout = folder.layout || {};
+    var list = (layout.list || []).slice();
+
+    var sourceIndex = -1;
+    for (var ri = 0; ri < list.length; ri++) {
+      if (list[ri].id === args.itemId) { sourceIndex = ri; break; }
+    }
+    if (sourceIndex < 0)
+      throw new Error(
+        "itemId '" + args.itemId + "' not found in folder layout. " +
+          "Current items: " + list.map(function (i) { return i.id; }).join(", "),
+      );
+
+    var item = list[sourceIndex];
+    list.splice(sourceIndex, 1);
+
+    var destIndex;
+    if (args.afterItemId !== undefined && args.afterItemId !== null) {
+      var afterIdx = -1;
+      for (var ai = 0; ai < list.length; ai++) {
+        if (list[ai].id === args.afterItemId) { afterIdx = ai; break; }
+      }
+      if (afterIdx < 0)
+        throw new Error(
+          "afterItemId '" + args.afterItemId + "' not found in folder layout.",
+        );
+      destIndex = afterIdx + 1;
+    } else if (args.index !== undefined && args.index !== null) {
+      destIndex = Math.max(0, Math.min(args.index, list.length));
+    } else {
+      destIndex = 0;
+    }
+
+    list.splice(destIndex, 0, item);
+    await ctx.provider.updateFolder({
+      domainId: domainId,
+      folderId: resolvedParentId,
+      data: { layout: Object.assign({}, layout, { list: list }) },
+    });
+    return {
+      itemId: args.itemId,
+      fromIndex: sourceIndex,
+      toIndex: destIndex,
     };
   }
 
@@ -936,7 +1221,7 @@ function summarizeElement(el, children) {
       summary.title = el.settings ? el.settings.title : null;
       break;
     case "iframe":
-      summary.url = el.settings ? el.settings.url : null;
+      summary.embedUrl = el.settings ? el.settings.embedUrl : null;
       break;
   }
   return summary;

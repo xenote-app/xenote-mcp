@@ -80,10 +80,38 @@ function register(app) {
 
     var sessionId = req.headers["mcp-session-id"];
 
-    // Existing session — forward to transport
+    // Existing session — refresh auth if needed, then forward to transport
     if (sessionId && sessions[sessionId]) {
-      console.log("[POST /mcp] existing session:", sessionId);
-      sessions[sessionId].transport.handleRequest(req, res, req.body);
+      var session = sessions[sessionId];
+      var authAge = Math.round((Date.now() - session.authTs) / 60000);
+      console.log("[POST /mcp] existing session:", sessionId, "| authAge:", authAge + "min", "| ttl:", Math.round(TOKEN_CACHE_TTL / 60000) + "min");
+
+      // Debug: check actual Firebase token state
+      if (session.getTokenDebug) {
+        session.getTokenDebug().then(function (info) {
+          console.log("[POST /mcp] token debug:", JSON.stringify(info));
+        });
+      }
+
+      if (Date.now() - session.authTs > TOKEN_CACHE_TTL) {
+        console.log("[POST /mcp] refreshing auth for session:", sessionId);
+        delete tokenCache[session.token];
+        resolveToken(session.token)
+          .then(function (newCustomToken) {
+            return session.refresh(newCustomToken);
+          })
+          .then(function () {
+            console.log("[POST /mcp] auth refreshed");
+            session.authTs = Date.now();
+            session.transport.handleRequest(req, res, req.body);
+          })
+          .catch(function (e) {
+            console.log("[POST /mcp] auth refresh failed:", e.message);
+            res.status(403).json({ error: "Auth refresh failed" });
+          });
+      } else {
+        session.transport.handleRequest(req, res, req.body);
+      }
       return;
     }
 
@@ -138,6 +166,10 @@ function register(app) {
             transport: transport,
             server: null,
             cleanup: sessionApp.cleanup,
+            token: token,
+            refresh: sessionApp.refresh,
+            getTokenDebug: sessionApp.getTokenDebug,
+            authTs: Date.now(),
           };
         },
       });
@@ -196,7 +228,15 @@ function register(app) {
     }
     var sessionId = req.headers["mcp-session-id"];
     if (sessionId && sessions[sessionId]) {
-      sessions[sessionId].transport.handleRequest(req, res);
+      var session = sessions[sessionId];
+      var authAge = Math.round((Date.now() - session.authTs) / 60000);
+      console.log("[GET /mcp] session:", sessionId, "| authAge:", authAge + "min");
+      if (session.getTokenDebug) {
+        session.getTokenDebug().then(function (info) {
+          console.log("[GET /mcp] token debug:", JSON.stringify(info));
+        });
+      }
+      session.transport.handleRequest(req, res);
     } else {
       console.log("[GET /mcp] session not found → 404");
       res.status(404).json({
