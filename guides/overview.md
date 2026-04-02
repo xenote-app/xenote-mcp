@@ -46,10 +46,21 @@ Articles have a **live working copy** (what you edit) and frozen **version snaps
 - fetch({ path: "/my-workspace" }) — lists articles with isPublished flag
 - public_fetch({ path: "/workspace-slug/article-slug" }) — fetches published article content
 
+## Course Progression
+Articles can require other articles to be completed before they unlock. Use `requiredArticles` in `article_update` to set prerequisites, and `markComplete` from `/core/completion/interface.js` in runners to mark articles done. See /references/mark-complete for details.
+
 ## Reading Content
 - fetch returns **summaries** for file elements (filename + lineCount only)
 - Use element_get(id) to read the full content of a specific file
 - Use public_fetch to read anyone's published articles
+
+## Running Code
+When a browser tab is attached (via the presence indicator), fetching an article navigates the browser to it. Use element_run to execute a runner and get back status, errors, and console logs.
+
+1. fetch the article first (this navigates the browser)
+2. element_run({ articlePath, id }) to execute the runner
+
+element_run returns { status, errorMessage, logs }. Use this to verify runners work without needing visual confirmation.
 
 ## Path Structure
 - Live content: /workspace-slug/article-slug (editable, via fetch)
