@@ -239,7 +239,7 @@ var tools = [
   {
     name: "element_delete",
     description:
-      "Delete an element and all its children. Deleting a code element also removes its file elements.",
+      "Delete an element and all its children. Deleting a code element also removes its file elements. This is irreversible.",
     annotations: {
       title: "Delete Element",
       destructiveHint: true,
@@ -345,7 +345,7 @@ var tools = [
   {
     name: "version",
     description:
-      "Manage article version snapshots. Actions: create, list, update, delete, revert, publish, unpublish. Publishing returns a publicUrl — share it with the user.",
+      "Manage article version snapshots. Actions: create, list, update, delete, revert, publish, unpublish. Publishing returns a publicUrl — share it with the user. delete and revert are irreversible.",
     annotations: {
       title: "Manage Versions",
       destructiveHint: true,
@@ -383,7 +383,7 @@ var tools = [
   {
     name: "folder",
     description:
-      "Manage folders and articles. Actions: createArticle, createFolder, deleteArticle, deleteFolder, move, reorder, addSection, editSection, deleteSection, renameSlug. createArticle returns an editorUrl — share it with the user. reorder moves any item (article, folder, or section) within the layout. Section actions manage grouping headers on the index page.",
+      "Manage folders and articles. Actions: createArticle, createFolder, deleteArticle, deleteFolder, move, reorder, addSection, editSection, deleteSection, renameSlug. createArticle returns an editorUrl — share it with the user. reorder moves any item (article, folder, or section) within the layout. Section actions manage grouping headers on the index page. deleteArticle and deleteFolder are irreversible. renameSlug will break existing cross-article imports and published URLs.",
     annotations: {
       title: "Manage Folders",
       destructiveHint: true,
