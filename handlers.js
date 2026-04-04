@@ -288,8 +288,8 @@ async function fetchFolderContent(ctx, domainId, folderId, path) {
 // ── Default Settings (mirrors frontend Policies) ────────────────────────────
 
 var defaultImportMap = {
-  react: "/libraries/react.development.18.2.0.mjs",
-  "react-dom": "/libraries/react-dom.development.18.mjs",
+  react: "/libraries/react.19.mjs",
+  "react-dom": "/libraries/react-dom.19.mjs",
 };
 
 var DEFAULT_SETTINGS = {
@@ -424,6 +424,9 @@ async function element_create(args, ctx) {
   var data = { type: type, version: 0 };
   if (content !== undefined) data.content = content;
   data.settings = Object.assign({}, defaults, settings || {});
+  if (type === "web-runner" && settings && settings.importMap) {
+    data.settings.importMap = Object.assign({}, defaultImportMap, settings.importMap);
+  }
   if (parentId) data.parentId = parentId;
 
   if (type === "file") {

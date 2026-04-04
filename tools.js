@@ -139,7 +139,7 @@ var tools = [
             "text: content is HTML (<p>, <h2>, <strong>, <math>, etc), not markdown. Don't add a title — the article title is already displayed. settings: { alignment?, columns?, css?, spellCheck? }\n" +
             'code: get_guide("code-and-files") before use. container for file children — don\'t put code in content. settings: { layout: "collapsed" | "" }\n' +
             'file: get_guide("code-and-files") before use. requires parentId (code element ID) and settings: { filename (required), isPulled? }\n' +
-            'web-runner: get_guide("frontend") before use. create code+files first. settings: { target (required, .jsx filename), importMap?, isWidget?, layout?, height?, autoHeight? }\n' +
+            'web-runner: get_guide("frontend") before use. create code+files first. React 19 is in importMap by default — additional imports are merged, not replaced. settings: { target (required, .jsx filename), importMap?, isWidget?, layout?, height?, autoHeight? }\n' +
             'box-runner: get_guide("backend") before use. settings: { command (required, e.g. "node app.js") }\n' +
             'kernel-runner: get_guide("backend") before use. content is Python code, no parentId needed\n' +
             "images: uses entries not content. entries: [{ filename (required, local filename (upload or pulled) or https URL), caption? }]. settings: { galleryType?, widthMode?, aspectRatio?, alignment?, hasBorder?, fitting? ('cover'|'contain'), fillerColor? }\n" +
@@ -285,7 +285,7 @@ var tools = [
   {
     name: "article_update",
     description:
-      "Update article title, description, context, settings, layout, or requiredArticles (prerequisites).",
+      "Update article title, description, context, settings, layout, or requiredArticles (prerequisites). Changes take effect immediately for public — no republish needed. Only title changes require republishing to update the published title.",
     annotations: {
       title: "Update Article",
       destructiveHint: false,
