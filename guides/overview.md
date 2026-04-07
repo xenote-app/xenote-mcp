@@ -35,10 +35,9 @@ Articles have a **live working copy** (what you edit) and frozen **version snaps
 - The **Dependency Version Map** (DV Map) freezes import versions at publish time, so published code never breaks (see "frontend" guide for details)
 
 **Workflow:**
-1. version({ action: "create" }) → { versionId: "xyz", slug: "0.0.0-d.0" }  (label and slug auto-generate)
-2. version({ action: "publish", versionId: "xyz" })
-3. Now accessible at /workspace-slug/article-slug
-4. Other articles can import: import { X } from '/workspace-slug/article-slug/file.js'
+1. version({ action: "create" }) → auto-publishes by default (isPublic: true). Returns { versionId, slug, publicUrl }
+2. Now accessible at /workspace-slug/article-slug
+3. Other articles can import: import { X } from '/workspace-slug/article-slug/file.js'
 
 **Other version actions:**
 - version({ action: "list" }) — see all versions of the current article
@@ -83,10 +82,10 @@ Example: /references/vani-simple-backend (domain availability checker with DNS +
 **Hardware control**: web-runner for a control UI + Vani pub/sub + box-runner on a Raspberry Pi or IoT device.
 Example: /references/vani-example-rpi-servo (servo motors controlled from the browser)
 
-**Rich widgets**: combine widget APIs (editor data for persistence + file generation for exports + uploaded files for user content + isEditor for viewer/editor modes) to build real apps inside documents.
+**Rich widgets**: combine widget APIs (editor data for persistence + file generation for exports + uploaded files for user content + isEditor for viewer/editor modes + isChromeless for clean UI) to build real apps inside documents.
 Example: /references/editor-example-stl-viewer (3D STL viewer with Three.js)
 
-**Data collection widgets**: histogrammer for aggregate data + editor data for config + widget mode for clean UI.
+**Data collection widgets**: histogrammer for aggregate data + editor data for config + isChromeless for clean UI.
 Example: /references/survey (poll widget)
 
 **Cross-article libraries**: publish utility code, then import it from anywhere. The DV Map freezes versions so published code never breaks.

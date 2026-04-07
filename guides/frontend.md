@@ -54,7 +54,7 @@ Cross-article imports don't require version numbers during development. The Stan
 element_create({ type: "code", settings: { layout: "collapsed" } })
 → { id: "abc" }
 element_create({ type: "file", parentId: "abc", content: "import './styles.css';\nimport Chart from './Chart.jsx';\nimport { DATA } from './data.js';\nexport default function App() {\n  return <div className=\"app\"><Chart data={DATA} /></div>;\n}", settings: { filename: "app.jsx" } })
-element_create({ type: "file", parentId: "abc", content: ".app { padding: 20px; }\n.chart { border: 1px solid #ddd; }", settings: { filename: "styles.css" } })
+element_create({ type: "file", parentId: "abc", content: ".app { padding: 20px; }\n.chart { border: 1px solid var(--doc-border); }", settings: { filename: "styles.css" } })
 element_create({ type: "file", parentId: "abc", content: "export const DATA = [\n  { x: 0, y: 10 },\n  { x: 1, y: 20 },\n];", settings: { filename: "data.js" } })
 element_create({ type: "file", parentId: "abc", content: "export default function Chart({ data }) {\n  return <svg>...</svg>;\n}", settings: { filename: "Chart.jsx" } })
 element_create({ type: "web-runner", settings: { target: "app.jsx", autoHeight: true } })
@@ -62,7 +62,7 @@ element_create({ type: "web-runner", settings: { target: "app.jsx", autoHeight: 
 Always create 3+ files. Split entry (app.jsx), styles (styles.css), data/config (.js), and components (.jsx) into separate files. This enables surgical patching — element_patch sends only the diff, not the whole file.
 
 ## Running After Changes
-When it makes sense, run the associated web-runner with element_call({ id, action: "run" }) after modifying files so the user sees the latest output.
+When it makes sense, run the associated web-runner with element_run({ articlePath, id }) after modifying files so the user sees the latest output.
 
 ## Gen AI API
 Web runners can use the reader's AI credits to call supported LLMs — no API keys needed. Import from /core/genai/interface.js:

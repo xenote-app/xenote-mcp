@@ -49,14 +49,20 @@ function createMCPServer(sessionCtx) {
     {
       capabilities: { tools: {}, resources: {} },
       instructions:
-        "You are connected to Xenote, a content platform for creating interactive articles with rich elements (text, code, live runners, images, tables, diagrams). " +
-        "Articles live in workspaces organized by folders. Articles can be published as versioned snapshots.\n\n" +
-        "URL patterns:\n" +
+        "Xenote is a platform for interactive articles. Workspace → Folders → Articles → Elements.\n\n" +
+        "Elements: text (HTML prose), code (file containers), web-runner (React in browser), box-runner (shell commands), kernel-runner (Python/Jupyter), images, table, iframe, excalidraw.\n\n" +
+        "Text for prose, runners for interactive content. Code elements hold files; runners execute them.\n\n" +
+        "Execution environments:\n" +
+        "- Frontend (web-runner): React components in the browser, no backend needed\n" +
+        "- Backend (box-runner): any shell command (Node, Python, Rust, etc.), needs user's machine connected\n" +
+        "- Jupyter (kernel-runner): stateful Python cells, needs user's machine connected\n\n" +
+        "Publishing: version({ action: 'create' }) snapshots and publishes. Other articles can import from published articles.\n\n" +
+        "Always read the relevant guide before creating elements. Read 'elements' before any element creation. Read 'design' before building interactive content.\n\n" +
+        "URLs:\n" +
         "- Editor: https://www.xenote.com/workspaces/{workspace}/{article}\n" +
         "- Published: https://xenote.com/{workspace}/{article}\n\n" +
-        "When you fetch or create an article, share the editorUrl with the user. When you publish, share the publicUrl.\n\n" +
-        "Always call get_guide before creating complex elements like code+files, web-runner, or box-runner.\n\n" +
-        "For working examples of all features, fetch /references.",
+        "Share editorUrl when you fetch/create, publicUrl when you publish.\n\n" +
+        "For working examples, fetch /references.",
     },
   );
 
