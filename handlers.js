@@ -8,6 +8,51 @@
 var { httpsCallable } = require("firebase/functions");
 var guides = require("./guides");
 
+// ── Typography Presets (mirrors app presets) ─────────────────────────────────
+
+var TYPOGRAPHY_PRESETS = [
+  {
+    id: "editorial",
+    theme: { font: "Source+Serif+Pro", headerFont: "Merriweather", headerFontWeight: "700", codeFont: "Source+Code+Pro" },
+  },
+  {
+    id: "elegant",
+    theme: { font: "Lora", headerFont: "Playfair+Display", headerFontWeight: "600", codeFont: "Inconsolata" },
+  },
+  {
+    id: "technical",
+    theme: { font: "IBM+Plex+Sans", headerFont: "JetBrains+Mono", headerFontWeight: "500", codeFont: "JetBrains+Mono" },
+  },
+  {
+    id: "journal",
+    theme: { font: "Alegreya", headerFont: "Alegreya", headerFontWeight: "700", codeFont: "IBM+Plex+Mono" },
+  },
+  {
+    id: "system",
+    theme: { font: null, headerFont: null, headerFontWeight: null, codeFont: null },
+  },
+];
+
+function resolveTypographyPreset(theme) {
+  for (var i = 0; i < TYPOGRAPHY_PRESETS.length; i++) {
+    var preset = TYPOGRAPHY_PRESETS[i];
+    var match = true;
+    for (var k in preset.theme) {
+      if (preset.theme[k] && preset.theme[k] !== (theme[k] || null)) { match = false; break; }
+      if (!preset.theme[k] && theme[k]) { match = false; break; }
+    }
+    if (match) return preset.id;
+  }
+  return "custom";
+}
+
+function expandTypographyPreset(presetId) {
+  for (var i = 0; i < TYPOGRAPHY_PRESETS.length; i++) {
+    if (TYPOGRAPHY_PRESETS[i].id === presetId) return TYPOGRAPHY_PRESETS[i].theme;
+  }
+  return null;
+}
+
 // ── Read-only Tools ──────────────────────────────────────────────────────────
 
 async function get_guide_handler(args) {
@@ -91,7 +136,7 @@ async function fetch_handler(args, ctx) {
     description: article ? article.description : null,
     requiredArticles: article ? article.requiredArticles || [] : [],
     articleContext: article ? article.articleContext || "" : "",
-    layout: { type: layout.type || "scroll", config: layout.config || null },
+    layout: { type: layout.type || "scroll", pageWidth: layout.pageWidth || "normal", hideTitle: layout.hideTitle || false, config: layout.config || null },
     elements: list,
   };
 }
@@ -268,11 +313,18 @@ async function fetchFolderContent(ctx, domainId, folderId, path) {
 
   var title = folder ? folder.title : null;
   var description = null;
+  var theme = null;
   if (domainId === folderId) {
     var domain = await ctx.provider.fetchDomain(domainId);
     if (domain) {
       title = domain.title || title;
       description = domain.description || null;
+      var dt = domain.theme || {};
+      theme = {
+        coverPageLayout: dt.coverPageLayout || "standard",
+        typography: resolveTypographyPreset(dt),
+        linkColor: dt.linkColor || "blue",
+      };
     }
   }
 
@@ -281,6 +333,7 @@ async function fetchFolderContent(ctx, domainId, folderId, path) {
     path: path,
     title: title,
     description: description,
+    theme: theme,
     items: items,
   };
 }
@@ -325,7 +378,7 @@ var DEFAULT_SETTINGS = {
     classToRender: "",
     importMap: defaultImportMap,
     useSystemStyles: true,
-    isWidget: false,
+    isChromeless: false,
     autorun: true,
     allowFullscreen: false,
   },
@@ -720,10 +773,12 @@ async function article_update(args, ctx) {
     });
   }
 
-  if (args.layoutType || args.layoutConfig) {
+  if (args.layoutType || args.layoutConfig || args.pageWidth || args.hideTitle !== undefined) {
     var layout = await ctx.resolve.fetchArticleLayout(domainId, articleId);
     var updatedLayout = Object.assign({}, layout);
     if (args.layoutType) updatedLayout.type = args.layoutType;
+    if (args.pageWidth) updatedLayout.pageWidth = args.pageWidth;
+    if (args.hideTitle !== undefined) updatedLayout.hideTitle = args.hideTitle;
     if (args.layoutConfig) {
       updatedLayout.config = Object.assign(
         {},
@@ -755,8 +810,30 @@ async function workspace_update(args, ctx) {
   if (args.title !== undefined) update.title = args.title;
   if (args.description !== undefined) update.description = args.description;
 
+  if (args.theme !== undefined) {
+    var domain = await ctx.provider.fetchDomain(domainId);
+    var currentTheme = (domain && domain.theme) || {};
+    var themeUpdate = {};
+
+    if (args.theme.coverPageLayout !== undefined)
+      themeUpdate.coverPageLayout = args.theme.coverPageLayout;
+    if (args.theme.linkColor !== undefined)
+      themeUpdate.linkColor = args.theme.linkColor;
+    if (args.theme.typography !== undefined) {
+      var typo = expandTypographyPreset(args.theme.typography);
+      if (!typo)
+        throw new Error(
+          "Unknown typography preset: '" + args.theme.typography + "'. " +
+            "Options: editorial, elegant, technical, journal, system.",
+        );
+      Object.assign(themeUpdate, typo);
+    }
+
+    update.theme = Object.assign({}, currentTheme, themeUpdate);
+  }
+
   if (Object.keys(update).length === 0)
-    throw new Error("Nothing to update. Provide at least one of: title, description.");
+    throw new Error("Nothing to update. Provide at least one of: title, description, theme.");
 
   await ctx.provider.updateDomain({
     domainId: domainId,

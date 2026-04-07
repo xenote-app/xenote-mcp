@@ -37,6 +37,7 @@ var tools = [
             "backend",
             "widget",
             "layout",
+            "design",
           ],
           description: "Guide name to read",
         },
@@ -139,7 +140,7 @@ var tools = [
             "text: content is HTML (<p>, <h2>, <strong>, <math>, etc), not markdown. Don't add a title — the article title is already displayed. settings: { alignment?, columns?, css?, spellCheck? }\n" +
             'code: get_guide("code-and-files") before use. container for file children — don\'t put code in content. settings: { layout: "collapsed" | "" }\n' +
             'file: get_guide("code-and-files") before use. requires parentId (code element ID) and settings: { filename (required), isPulled? }\n' +
-            'web-runner: get_guide("frontend") before use. create code+files first. React 19 is in importMap by default — additional imports are merged, not replaced. settings: { target (required, .jsx filename), importMap?, isWidget?, layout?, height?, autoHeight? }\n' +
+            'web-runner: get_guide("frontend") before use. create code+files first. React 19 is in importMap by default — additional imports are merged, not replaced. settings: { target (required, .jsx filename), importMap?, isChromeless?, layout?, height?, autoHeight? }\n' +
             'box-runner: get_guide("backend") before use. settings: { command (required, e.g. "node app.js") }\n' +
             'kernel-runner: get_guide("backend") before use. content is Python code, no parentId needed\n' +
             "images: uses entries not content. entries: [{ filename (required, local filename (upload or pulled) or https URL), caption? }]. settings: { galleryType?, widthMode?, aspectRatio?, alignment?, hasBorder?, fitting? ('cover'|'contain'), fillerColor? }\n" +
@@ -168,7 +169,7 @@ var tools = [
   {
     name: "element_update",
     description:
-      "Replace element content or settings entirely. Use for settings changes, small elements, or full rewrites. For surgical code edits, prefer element_patch.",
+      "Replace element content or settings entirely. Use for settings changes, small elements, or full rewrites. For files over ~50 lines, prefer element_patch to avoid accidental data loss.",
     annotations: {
       title: "Update Element",
       destructiveHint: false,
@@ -200,7 +201,7 @@ var tools = [
   {
     name: "element_patch",
     description:
-      "Performs exact string replacements in element content. Use for surgical code edits. The edit will FAIL if old_string is not found or is not unique.",
+      "Performs exact string replacements in element content. Preferred over element_update for files over ~50 lines. The edit will FAIL if old_string is not found or is not unique.",
     annotations: {
       title: "Patch Element",
       destructiveHint: false,
@@ -314,6 +315,15 @@ var tools = [
           enum: ["scroll", "grid"],
           description: "Layout type",
         },
+        pageWidth: {
+          type: "string",
+          enum: ["normal", "wide"],
+          description: "Article page width",
+        },
+        hideTitle: {
+          type: "boolean",
+          description: "Hide the article title on the page (default false, scroll layout only)",
+        },
         layoutConfig: {
           type: "object",
           description: "Layout configuration",
@@ -325,7 +335,7 @@ var tools = [
   {
     name: "workspace_update",
     description:
-      "Update workspace title or description.",
+      "Update workspace title, description, or theme. Theme is workspace-level only — applies to all articles.",
     annotations: {
       title: "Update Workspace",
       destructiveHint: false,
@@ -338,6 +348,27 @@ var tools = [
         articlePath: ARTICLE_PATH_PROP.articlePath,
         title: { type: "string", description: "Workspace title" },
         description: { type: "string", description: "Workspace description" },
+        theme: {
+          type: "object",
+          description: "Workspace theme settings",
+          properties: {
+            coverPageLayout: {
+              type: "string",
+              enum: ["standard", "journal", "tactile"],
+              description: "Homepage layout: standard (text-focused), journal (chapters), tactile (card grid)",
+            },
+            typography: {
+              type: "string",
+              enum: ["editorial", "elegant", "technical", "journal", "system"],
+              description: "Typography preset: editorial (serif), elegant (classic), technical (mono), journal (warm), system (native)",
+            },
+            linkColor: {
+              type: "string",
+              enum: ["blue", "indigo", "violet", "teal", "amber", "rose", "neutral"],
+              description: "Brand accent color",
+            },
+          },
+        },
       },
       required: [],
     },

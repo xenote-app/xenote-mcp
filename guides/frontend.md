@@ -10,7 +10,7 @@ Web runner renders React components in an iframe. No backend needed.
 ## Settings
 - target: filename to render (must default-export a React component, .jsx)
 - importMap?: { "package": "https://esm.sh/package" } — for external dependencies
-- isWidget?: widget mode — strips UI chrome, renders output only
+- isChromeless?: strips UI chrome (toolbar, console) — output blends into the document
 - autorun?: auto-run on published page (default true)
 
 ### Height
@@ -23,7 +23,7 @@ Web runner renders React components in an iframe. No backend needed.
 - Extension required on all imports: import X from './utils.js'
 - React is auto-available — do NOT import React
 - react (for hooks) and react-dom are built-in — do NOT add to importMap
-- .css imports work: import './styles.css'
+- CSS must be imported in the entry file: `import './styles.css'` — silent failure if omitted
 - Cannot use .html files — web-runner is React-only
 
 ## Import Map
@@ -59,7 +59,7 @@ element_create({ type: "file", parentId: "abc", content: "export const DATA = [\
 element_create({ type: "file", parentId: "abc", content: "export default function Chart({ data }) {\n  return <svg>...</svg>;\n}", settings: { filename: "Chart.jsx" } })
 element_create({ type: "web-runner", settings: { target: "app.jsx", autoHeight: true } })
 
-Always create 3+ files. Split entry (app.jsx), styles (styles.css), data/config (.js), and components (.jsx) into separate files.
+Always create 3+ files. Split entry (app.jsx), styles (styles.css), data/config (.js), and components (.jsx) into separate files. This enables surgical patching — element_patch sends only the diff, not the whole file.
 
 ## Running After Changes
 When it makes sense, run the associated web-runner with element_call({ id, action: "run" }) after modifying files so the user sees the latest output.
@@ -75,12 +75,22 @@ The user is prompted before credits are spent. Models change over time, so alway
 ## Completion API
 Web runners can mark articles as complete via /core/completion/interface.js. Two functions: markComplete(true/false) and fetchIsComplete(). Useful for courses and sequential content where articles unlock as readers progress. See /references/mark-complete for a working example.
 
-## Widgets
-A web runner becomes a widget when isWidget is set to true. Widgets are interactive apps embedded in documents that can persist data, access uploaded files, generate exportable files, and distinguish between the author and readers.
+## Debug Loop
+Ask the user to attach a browser tab (presence indicator). Then:
+1. `fetch` the article (navigates the browser to it)
+2. `element_run({ articlePath, id })` to execute the runner
+3. Read status, errors, and console logs from the response
+4. Fix and repeat
 
-Set isWidget: true to strip the runner chrome (toolbar, console). The output blends into the document as if it's part of the page — ideal for interactive widgets, visualizations, and embedded tools.
+## Theming
+For colors, fonts, and dark mode support, read the design guide: `get_guide('design')`.
 
-For advanced widget APIs (editor/viewer mode, uploaded files, file generation, agent access), see the "widget" guide.
+## Chromeless Mode & Widgets
+Set isChromeless: true to strip the runner chrome (toolbar, console). The output blends into the document — ideal for visualizations, embedded tools, and widgets.
+
+Widgets are a separate concept: interactive modules that use the Editor Interface to persist data, access uploaded files, generate exportable files, and distinguish between author and reader. They typically use isChromeless: true, but the setting and the pattern are independent.
+
+For widget APIs (editor/viewer mode, uploaded files, file generation, agent access), see the "widget" guide.
 
 ## Working Examples
 Fetch /references/intro-to-web or /references/simple-imports for live tutorials.

@@ -1,13 +1,15 @@
 # Widgets
 
-A widget is a web runner with Widget Mode enabled (`isWidget: true`). This hides all the runner chrome - the bottom bar with status/target/reload, the inspector options, floating buttons - so the output looks like a native part of the document rather than a code runner. Widgets auto-run on page load without the user clicking anything.
+A widget is a web runner that uses the Editor Interface to persist data, manage files, and distinguish between author and reader contexts. Widgets are interactive modules embedded in documents: editors, viewers, dashboards, audio players, forms.
 
-Use widgets for interactive tools embedded in documents: editors, viewers, dashboards, audio players, forms. The code behind a widget is the same as any web runner (React components in .jsx files), but the presentation is clean and end-user-friendly.
+The code is the same as any web runner (React components in .jsx files), but widgets use special APIs for persistence and authoring.
 
-## Widget Mode Settings
-- **isWidget: true** - strips the bottom bar, inspector, and floating controls. Output blends into the document.
-- **autoHeight: true** - expand height to fit content (recommended so the widget isn't clipped or scrolling)
-- **hideMenuOnPublish: true** - hide the runner menu on published pages for a fully seamless look
+For theming (colors, fonts, dark mode), read the design guide: `get_guide('design')`.
+
+## Recommended Settings
+- **isChromeless: true** — strips the toolbar and console so the output blends into the document
+- **autoHeight: true** — expand height to fit content (recommended so the widget isn't clipped or scrolling)
+- **hideMenuOnPublish: true** — hide the runner menu on published pages for a fully seamless look
 
 ## Editor vs. Viewer
 Widgets run in two contexts:

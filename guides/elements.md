@@ -25,7 +25,7 @@ A file attached to a code or runner element. See **xenote://guides/code-and-file
 ## web-runner
 Browser-based runner for React/JS. See **xenote://guides/frontend** for full details.
 - Create code + file elements first, then the runner targeting a .jsx file
-- settings: { target (required, .jsx filename), importMap?, isWidget?, autoHeight?, height?, layout? }
+- settings: { target (required, .jsx filename), importMap?, isChromeless?, autoHeight?, height?, layout? }
 
 ## box-runner
 Server-side runner (Node, Python, etc). See **xenote://guides/backend** for full details.
