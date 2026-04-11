@@ -790,18 +790,30 @@ async function article_update(args, ctx) {
     if (args.pageWidth) updatedLayout.pageWidth = args.pageWidth;
     if (args.hideTitle !== undefined) updatedLayout.hideTitle = args.hideTitle;
     if (args.layoutConfig) {
-      if (args.layoutConfig.grid && args.layoutConfig.grid.elements) {
+      // Grid element positions — accept both layoutConfig.grid.elements and layoutConfig.elements
+      var gridElements = null;
+      var gridConfig = null;
+      if (args.layoutConfig.grid) {
+        gridElements = args.layoutConfig.grid.elements || null;
+        gridConfig = args.layoutConfig.grid.config || null;
+      } else if (args.layoutConfig.elements) {
+        gridElements = args.layoutConfig.elements;
+      }
+
+      if (gridElements) {
         var existingGrid = layout.grid || {};
         var existingElements = existingGrid.elements || {};
         updatedLayout.grid = Object.assign({}, existingGrid, {
-          elements: Object.assign({}, existingElements, args.layoutConfig.grid.elements),
+          elements: Object.assign({}, existingElements, gridElements),
         });
-        if (args.layoutConfig.grid.config) {
-          updatedLayout.grid.config = Object.assign({}, existingGrid.config || {}, args.layoutConfig.grid.config);
+        if (gridConfig) {
+          updatedLayout.grid.config = Object.assign({}, existingGrid.config || {}, gridConfig);
         }
       }
+
       var configUpdate = Object.assign({}, args.layoutConfig);
       delete configUpdate.grid;
+      delete configUpdate.elements;
       if (Object.keys(configUpdate).length > 0) {
         updatedLayout.config = Object.assign(
           {},
