@@ -60,7 +60,6 @@ Importable from `/core/style/`. Always import `base.css`. Add others as needed.
 ```js
 import '/core/style/base.css';           // always - reset, colors, typography, forms
 import '/core/style/utils.css';          // optional - layout and spacing utilities
-import '/core/style/components.css';     // optional - buttons, cards, tables, badges
 ```
 
 Optional background tints (pick one or neither):

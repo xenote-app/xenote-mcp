@@ -28,18 +28,22 @@ Each element's position is stored in `layout.grid.elements` as `{ x, y, w, h }`:
 - **w**: width in columns (1–12)
 - **h**: height in rows
 
-Set positions via `article_update` with `layoutConfig`:
+Set positions via `article_update` with `layoutConfig.grid.elements`:
 ```
 article_update({
   articlePath: "/workspace/my-grid",
   layoutConfig: {
-    elements: {
-      "element-id-1": { id: "element-id-1", x: 0, y: 0, w: 6, h: 4 },
-      "element-id-2": { id: "element-id-2", x: 6, y: 0, w: 6, h: 4 }
+    grid: {
+      elements: {
+        "element-id-1": { id: "element-id-1", x: 0, y: 0, w: 6, h: 4 },
+        "element-id-2": { id: "element-id-2", x: 6, y: 0, w: 6, h: 4 }
+      }
     }
   }
 })
 ```
+
+Positions are **merged** — updating one element's position won't affect others.
 
 ### Grid config
 
@@ -48,16 +52,18 @@ Default cell sizing works for most cases. To customize:
 article_update({
   articlePath: "/workspace/my-grid",
   layoutConfig: {
-    config: { cellSize: { width: 16, height: 14 }, cellGap: { x: 4, y: 4 } }
+    grid: {
+      config: { cellSize: { width: 16, height: 14 }, cellGap: { x: 4, y: 4 } }
+    }
   }
 })
 ```
 
 ### Workflow
 
-1. Create elements normally (`element_create`)
-2. Position them with `article_update({ layoutConfig: { elements: { ... } } })`
-3. Elements not in `grid.elements` won't be visible — position every element
+1. Create elements normally (`element_create`) — you'll get a warning to set position
+2. Position them with `article_update({ layoutConfig: { grid: { elements: { ... } } } })`
+3. Elements without a grid position will be invisible — always position new elements
 
 ### Common grid layouts
 
