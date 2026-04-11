@@ -140,8 +140,11 @@ async function fetch_handler(args, ctx) {
       type: layout.type || "scroll",
       pageWidth: layout.pageWidth || "normal",
       hideTitle: layout.hideTitle || false,
-      config: layout.config || null,
-      grid: layout.grid && layout.grid.elements ? { elements: layout.grid.elements } : null,
+      grid: layout.grid ? {
+        cols: layout.grid.cols || 12,
+        cell: layout.grid.cell || null,
+        elements: layout.grid.elements || null,
+      } : null,
     },
     elements: list,
   };
@@ -792,34 +795,29 @@ async function article_update(args, ctx) {
     if (args.layoutConfig) {
       // Grid element positions — accept both layoutConfig.grid.elements and layoutConfig.elements
       var gridElements = null;
-      var gridConfig = null;
+      var gridCols = undefined;
+      var gridCell = null;
       if (args.layoutConfig.grid) {
         gridElements = args.layoutConfig.grid.elements || null;
-        gridConfig = args.layoutConfig.grid.config || null;
+        gridCols = args.layoutConfig.grid.cols;
+        gridCell = args.layoutConfig.grid.cell || null;
       } else if (args.layoutConfig.elements) {
         gridElements = args.layoutConfig.elements;
       }
 
-      if (gridElements) {
+      if (gridElements || gridCols !== undefined || gridCell) {
         var existingGrid = layout.grid || {};
-        var existingElements = existingGrid.elements || {};
-        updatedLayout.grid = Object.assign({}, existingGrid, {
-          elements: Object.assign({}, existingElements, gridElements),
-        });
-        if (gridConfig) {
-          updatedLayout.grid.config = Object.assign({}, existingGrid.config || {}, gridConfig);
+        updatedLayout.grid = Object.assign({}, existingGrid);
+        if (gridElements) {
+          var existingElements = existingGrid.elements || {};
+          updatedLayout.grid.elements = Object.assign({}, existingElements, gridElements);
         }
-      }
-
-      var configUpdate = Object.assign({}, args.layoutConfig);
-      delete configUpdate.grid;
-      delete configUpdate.elements;
-      if (Object.keys(configUpdate).length > 0) {
-        updatedLayout.config = Object.assign(
-          {},
-          layout.config || {},
-          configUpdate,
-        );
+        if (gridCols !== undefined) {
+          updatedLayout.grid.cols = gridCols;
+        }
+        if (gridCell) {
+          updatedLayout.grid.cell = Object.assign({}, existingGrid.cell || {}, gridCell);
+        }
       }
     }
     await ctx.resolve.updateLayout(domainId, articleId, updatedLayout);

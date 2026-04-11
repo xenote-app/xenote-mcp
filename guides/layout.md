@@ -45,17 +45,23 @@ article_update({
 
 Positions are **merged** — updating one element's position won't affect others.
 
-### Grid config
+### Grid settings
 
-Default cell sizing works for most cases. To customize:
+Default: 12 columns, cell size 16x14, gap 4x4. Rows are auto-derived from element positions.
+
+To change columns:
 ```
 article_update({
   articlePath: "/workspace/my-grid",
-  layoutConfig: {
-    grid: {
-      config: { cellSize: { width: 16, height: 14 }, cellGap: { x: 4, y: 4 } }
-    }
-  }
+  layoutConfig: { grid: { cols: 16 } }
+})
+```
+
+To change cell size/gap (rarely needed):
+```
+article_update({
+  articlePath: "/workspace/my-grid",
+  layoutConfig: { grid: { cell: { width: 20, height: 16, gapX: 6, gapY: 6 } } }
 })
 ```
 
