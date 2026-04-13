@@ -36,7 +36,7 @@ import Icon from 'https://unpkg.com/lucide-react@0.356.0/dist/esm/icons/icon-nam
 ## Cross-Article Imports
 Import files from other articles that have a published version:
 import { Chart } from '/workspace-slug/article-slug/charts.js';
-- **IMPORTANT**: The source article MUST be published first (version_create + version_publish). Unpublished articles cannot be imported — imports will fail silently or error at runtime.
+- **IMPORTANT**: The source article MUST be published first (version create with isPublic: true, which is the default). Unpublished articles cannot be imported — imports will fail silently or error at runtime.
 - Imports resolve against the published version snapshot, NOT the live working copy
 - If you update the source article, you must publish a new version for the changes to be importable
 - Without @version pin, resolves to the currently published version

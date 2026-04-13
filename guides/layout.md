@@ -47,21 +47,15 @@ Positions are **merged** — updating one element's position won't affect others
 
 ### Grid settings
 
-Default: 12 columns, cell size 16x14, gap 4x4. Rows are auto-derived from element positions.
+Default: 12 columns. Rows are auto-derived from element positions. Cell size and gap are read-only.
+
+Cell dimensions in pixels = point value × (fontSize / 4). At default fontSize 16: each cell is 64×56px with 16px gaps. A 6-column-wide element spans 6 × (64 + 16) - 16 = 464px.
 
 To change columns:
 ```
 article_update({
   articlePath: "/workspace/my-grid",
   layoutConfig: { grid: { cols: 16 } }
-})
-```
-
-To change cell size/gap (rarely needed):
-```
-article_update({
-  articlePath: "/workspace/my-grid",
-  layoutConfig: { grid: { cell: { width: 20, height: 16, gapX: 6, gapY: 6 } } }
 })
 ```
 

@@ -286,7 +286,7 @@ var tools = [
   {
     name: "article_update",
     description:
-      "Update article title, description, context, settings, layout, or requiredArticles (prerequisites). Changes take effect immediately for public — no republish needed. Only title changes require republishing to update the published title.",
+      "Update article title, description, context, settings, layout, or requiredArticles (prerequisites). requiredArticles changes take effect immediately — no republish needed. Title changes require republishing to update the published title.",
     annotations: {
       title: "Update Article",
       destructiveHint: false,
@@ -376,7 +376,7 @@ var tools = [
   {
     name: "version",
     description:
-      "Manage article version snapshots. Actions: create, list, update, delete, revert, publish, unpublish. Publishing returns a publicUrl — share it with the user. delete and revert are irreversible.",
+      "Manage article version snapshots. Actions: create, list, update, delete, revert. create with isPublic: true (default) auto-publishes. To publish/unpublish later, use update with isPublished: true/false. list returns all versions with isPublic and isPublished flags. delete and revert are irreversible.",
     annotations: {
       title: "Manage Versions",
       destructiveHint: true,
@@ -394,19 +394,18 @@ var tools = [
             "update",
             "delete",
             "revert",
-            "publish",
-            "unpublish",
           ],
           description: "The version operation to perform",
         },
         versionId: {
           type: "string",
-          description: "Version ID (for update/delete/revert/publish)",
+          description: "Version ID (for update/delete/revert)",
         },
         label: { type: "string", description: "Display label" },
         slug: { type: "string", description: "Semver version ID" },
         notes: { type: "string", description: "Version notes" },
-        isPublic: { type: "boolean", description: "Whether version is public" },
+        isPublic: { type: "boolean", description: "Whether version is publicly accessible via @slug URL (default true)" },
+        isPublished: { type: "boolean", description: "For update: set true to publish this version as the live article, false to unpublish" },
       },
       required: ["articlePath", "action"],
     },

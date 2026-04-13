@@ -796,16 +796,14 @@ async function article_update(args, ctx) {
       // Grid element positions — accept both layoutConfig.grid.elements and layoutConfig.elements
       var gridElements = null;
       var gridCols = undefined;
-      var gridCell = null;
       if (args.layoutConfig.grid) {
         gridElements = args.layoutConfig.grid.elements || null;
         gridCols = args.layoutConfig.grid.cols;
-        gridCell = args.layoutConfig.grid.cell || null;
       } else if (args.layoutConfig.elements) {
         gridElements = args.layoutConfig.elements;
       }
 
-      if (gridElements || gridCols !== undefined || gridCell) {
+      if (gridElements || gridCols !== undefined) {
         var existingGrid = layout.grid || {};
         updatedLayout.grid = Object.assign({}, existingGrid);
         if (gridElements) {
@@ -814,9 +812,6 @@ async function article_update(args, ctx) {
         }
         if (gridCols !== undefined) {
           updatedLayout.grid.cols = gridCols;
-        }
-        if (gridCell) {
-          updatedLayout.grid.cell = Object.assign({}, existingGrid.cell || {}, gridCell);
         }
       }
     }
@@ -888,6 +883,11 @@ async function version_handler(args, ctx) {
   var action = args.action;
 
   if (action === "list") {
+    var article = await ctx.provider.fetchArticle({
+      domainId: domainId,
+      articleId: articleId,
+    });
+    var publishedVersionId = article ? article.publishedVersionId : null;
     var versions = await ctx.provider.fetchVersions({
       domainId: domainId,
       articleId: articleId,
@@ -900,6 +900,7 @@ async function version_handler(args, ctx) {
           slug: v.slug,
           notes: v.notes,
           isPublic: v.isPublic || false,
+          isPublished: v.id === publishedVersionId,
           createdAt: v.createdAt,
         };
       }),
@@ -907,15 +908,44 @@ async function version_handler(args, ctx) {
   }
 
   if (action === "update") {
+    if (!args.versionId)
+      throw new Error("versionId is required for update");
     var data = {};
     if (args.label !== undefined) data.label = args.label;
     if (args.notes !== undefined) data.notes = args.notes;
-    await ctx.provider.updateVersion({
-      domainId: domainId,
-      articleId: articleId,
-      versionId: args.versionId,
-      data: data,
-    });
+    if (Object.keys(data).length > 0) {
+      await ctx.provider.updateVersion({
+        domainId: domainId,
+        articleId: articleId,
+        versionId: args.versionId,
+        data: data,
+      });
+    }
+    if (args.isPublished === true) {
+      await httpsCallable(
+        ctx.functions,
+        "publishVersionCall",
+      )({
+        domainId: domainId,
+        articleId: articleId,
+        versionId: args.versionId,
+      });
+      data.isPublished = true;
+      ctx.provider.setPresence(ctx.uid, {
+        toolName: "version",
+        path: args.articlePath,
+        lastAction: { type: "published", slug: args.versionId },
+      }).catch(function () {});
+    } else if (args.isPublished === false) {
+      await httpsCallable(
+        ctx.functions,
+        "unpublishArticleCall",
+      )({
+        domainId: domainId,
+        articleId: articleId,
+      });
+      data.isPublished = false;
+    }
     return { versionId: args.versionId, updated: data };
   }
 
@@ -980,7 +1010,8 @@ async function version_handler(args, ctx) {
       notes: version.notes || null,
       filenames: version.filenames || [],
       dvMap: version.dvMap || null,
-      published: isPublic,
+      isPublic: isPublic,
+      isPublished: isPublic,
     };
     if (isPublic) {
       versionResult.publicUrl =
@@ -1016,29 +1047,6 @@ async function version_handler(args, ctx) {
       versionId: args.versionId,
     });
     return { versionId: args.versionId, revertedAt: Date.now() };
-  }
-
-  if (action === "publish") {
-    await httpsCallable(
-      ctx.functions,
-      "publishVersionCall",
-    )({
-      domainId: domainId,
-      articleId: articleId,
-      versionId: args.versionId,
-    });
-    return { versionId: args.versionId };
-  }
-
-  if (action === "unpublish") {
-    await httpsCallable(
-      ctx.functions,
-      "unpublishArticleCall",
-    )({
-      domainId: domainId,
-      articleId: articleId,
-    });
-    return { articleId: articleId };
   }
 
   throw new Error("Unknown version action: " + action);
