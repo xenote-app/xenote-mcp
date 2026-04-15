@@ -62,7 +62,7 @@ function createMCPServer(sessionCtx) {
         "- Editor: https://www.xenote.com/workspaces/{workspace}/{article}\n" +
         "- Published: https://xenote.com/{workspace}/{article}\n\n" +
         "Share editorUrl when you fetch/create, publicUrl when you publish.\n\n" +
-        "For working examples, fetch /references.",
+        "For working examples, fetch /references. For creative inspiration: /robo-diner (IoT robotics with Vani, cross-article imports, and hardware control), /casita (edu-tech with interactive games, widgets, and exercises), /logic-lab (edu-tech course with circuit simulator, requiredArticles for sequential unlocking, and cross-article component reuse).",
     },
   );
 
