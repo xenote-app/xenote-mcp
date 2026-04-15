@@ -17,7 +17,7 @@ var tools = [
   {
     name: "get_guide",
     description:
-      "Read a Xenote guide. Available guides: overview, elements, code-and-files, frontend, backend, widget. Always read the relevant guide before creating complex elements.",
+      "Read a Xenote guide for detailed patterns and APIs. Guides cover: cross-article imports, Gen AI API, Vani messaging, widget APIs, theming/design tokens, debug loop. Available: overview, elements, code-and-files, frontend, backend, widget, layout, design.",
     annotations: {
       title: "Read Guide",
       readOnlyHint: true,
@@ -111,7 +111,7 @@ var tools = [
   {
     name: "element_create",
     description:
-      "Create a new element. Use get_guide to read full details before creating complex elements.",
+      "Create a new element. Response includes tips with critical rules for complex types.",
     annotations: {
       title: "Create Element",
       destructiveHint: false,

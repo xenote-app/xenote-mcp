@@ -57,7 +57,7 @@ function createMCPServer(sessionCtx) {
         "- Backend (box-runner): any shell command (Node, Python, Rust, etc.), needs user's machine connected\n" +
         "- Jupyter (kernel-runner): stateful Python cells, needs user's machine connected\n\n" +
         "Publishing: version({ action: 'create' }) snapshots and publishes. Other articles can import from published articles.\n\n" +
-        "Always read the relevant guide before creating elements. Read 'elements' before any element creation. Read 'design' before building interactive content.\n\n" +
+        "Tool responses include tips with critical rules. Guides (get_guide) go deeper: cross-article imports, Gen AI API, Vani messaging, widget APIs, theming details.\n\n" +
         "URLs:\n" +
         "- Editor: https://www.xenote.com/workspaces/{workspace}/{article}\n" +
         "- Published: https://xenote.com/{workspace}/{article}\n\n" +

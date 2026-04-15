@@ -498,7 +498,13 @@ async function element_create(args, ctx) {
       articleId: articleId,
       data: data,
     });
-    return { id: fileResult.id, type: type, parentId: parentId };
+    var fileCreateResult = { id: fileResult.id, type: type, parentId: parentId };
+    var lineCount = (content || "").split("\n").length;
+    if (lineCount > 150) {
+      fileCreateResult.warning =
+        "This file is " + lineCount + " lines. Split large files into smaller ones (entry, styles, components, utils) for easier patching and readability.";
+    }
+    return fileCreateResult;
   }
 
   var result = await ctx.provider.createElement({
@@ -525,6 +531,30 @@ async function element_create(args, ctx) {
   if ((layout.type || "scroll") === "grid") {
     createResult.warning = "This is a grid article. Set the element's position with article_update({ layoutConfig: { grid: { elements: { \"" + result.id + "\": { id: \"" + result.id + "\", x: 0, y: 0, w: 4, h: 4 } } } } }) or it will be invisible.";
   }
+
+  // Contextual tips for complex element types
+  var tips = {
+    "web-runner":
+      "Rules: Don't import React (auto-available). Extension required on all imports: './file.js'. " +
+      "CSS must be imported in entry file: import './styles.css'. " +
+      "Use isChromeless: true + autoHeight: true for embedded feel. " +
+      "import '/core/style/base.css' for theming and dark mode. " +
+      "get_guide('frontend') covers importMap, cross-article imports, Gen AI API, and debug loop.",
+    "box-runner":
+      "Rules: Needs a connected machine (user manages from ENV panel). " +
+      "All article files sync to sandbox folder. Use isPulled: true on file elements to fetch output back. " +
+      "get_guide('backend') covers machines, Vani messaging, and env vars.",
+    "kernel-runner":
+      "Rules: Content is Python code directly on this element — no parentId or file elements needed. " +
+      "Needs a connected machine. Variables persist across cells in the same article. " +
+      "get_guide('backend') covers machines, rich output, and env vars.",
+    code:
+      "Rules: This is a container — add file children with parentId set to this element's ID. " +
+      "Always split into multiple files: entry (.jsx), styles (.css), data (.js), components (.jsx). " +
+      "get_guide('code-and-files') covers editing patterns and element_patch usage.",
+  };
+  if (tips[type]) createResult.tip = tips[type];
+
   return createResult;
 }
 
@@ -546,6 +576,18 @@ async function element_update(args, ctx) {
         ? " It looks like you passed content/settings at the top level — they must be nested inside 'data', e.g. { data: { content: ... } }."
         : "";
     throw new Error("Missing required param 'data'." + hint);
+  }
+  // Reject empty data — this is always a mistake
+  if (
+    args.data.content === undefined &&
+    args.data.settings === undefined &&
+    args.data.entries === undefined &&
+    args.data.editorData === undefined
+  ) {
+    throw new Error(
+      "Empty data object — nothing to update. Pass { data: { content, settings, or entries } }. " +
+        "If you're trying to diagnose an issue, use element_get to read current content instead.",
+    );
   }
   var pathData = await ctx.resolve.resolvePath(args.articlePath);
   var domainId = pathData.domainId;
@@ -589,7 +631,15 @@ async function element_update(args, ctx) {
     data: updateData,
   });
 
-  return { id: id, appliedData: data };
+  var updateResult = { id: id, appliedData: data };
+  if (el.type === "file" && data.content !== undefined) {
+    var updatedLineCount = data.content.split("\n").length;
+    if (updatedLineCount > 150) {
+      updateResult.warning =
+        "This file is now " + updatedLineCount + " lines. Consider splitting into smaller files for easier patching and readability.";
+    }
+  }
+  return updateResult;
 }
 
 async function element_patch(args, ctx) {
@@ -637,7 +687,8 @@ async function element_patch(args, ctx) {
     throw new Error(
       "EDIT_FAILED: " +
         error.message +
-        ". Call element_get to see current content, then retry.",
+        " Check for special characters (×, →, curly quotes, unicode) that may differ from what you expect." +
+        " Call element_get to see current content. If matching is difficult, use element_update with full content instead.",
     );
   }
 
@@ -1016,6 +1067,9 @@ async function version_handler(args, ctx) {
     if (isPublic) {
       versionResult.publicUrl =
         "https://xenote.com/" + args.articlePath.replace(/^\//, "");
+      versionResult.tip =
+        "If other articles import from this one, they must also be republished to pick up these changes. " +
+        "Their published versions still point to the previous snapshot until you republish them.";
       ctx.provider.setPresence(ctx.uid, {
         toolName: "version",
         path: args.articlePath,

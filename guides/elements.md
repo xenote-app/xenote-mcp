@@ -14,7 +14,7 @@ Rich text as HTML (NOT markdown).
 ## code
 Container for file children — don't put code in content. See **xenote://guides/code-and-files** for full details.
 - content: leave empty
-- settings: { layout? ("collapsed"|""), isReadOnly? (false=editable, true=read-only, "hidden"=hidden on publish) }
+- settings: { layout? ("collapsed"|""), isReadOnly? (false=editable, true=read-only, "hidden"=hidden on publish), title? (group label, e.g. "Components", "Utils") }
 
 ## file
 A file attached to a code or runner element. See **xenote://guides/code-and-files** for full details.
