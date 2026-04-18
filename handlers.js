@@ -76,7 +76,13 @@ async function fetch_handler(args, ctx) {
       var d = await ctx.provider.fetchDomain(domainOrder[i]);
       if (d) workspaces.push({ slug: d.slug, title: d.title, description: d.description || null, id: d.id });
     }
-    return { type: "workspaces", workspaces: workspaces };
+    var userName = (userInfo && userInfo.name) || (ctx.user && ctx.user.name) || null;
+    var userEmail = ctx.user && ctx.user.email || null;
+    return {
+      type: "workspaces",
+      user: { name: userName, email: userEmail },
+      workspaces: workspaces,
+    };
   }
 
   // Resolve path to folder or article
@@ -493,6 +499,23 @@ async function element_create(args, ctx) {
 
   if (type === "file") {
     if (!data.settings.filename) data.settings.filename = "untitled.js";
+    // Check for duplicate filenames — filenames are scoped to the article, not the code element
+    var existingElements = await ctx.provider.fetchArticleElements({
+      domainId: domainId,
+      articleId: articleId,
+    });
+    for (var fi = 0; fi < existingElements.length; fi++) {
+      if (
+        existingElements[fi].type === "file" &&
+        existingElements[fi].settings &&
+        existingElements[fi].settings.filename === data.settings.filename
+      ) {
+        throw new Error(
+          "Duplicate filename '" + data.settings.filename + "' — filenames must be unique across the entire article, not just within a code element. " +
+            "Use distinct names like 'xor-app.jsx' and 'adder-app.jsx', or group all related files under one code element.",
+        );
+      }
+    }
     var fileResult = await ctx.provider.createElement({
       domainId: domainId,
       articleId: articleId,
@@ -551,6 +574,7 @@ async function element_create(args, ctx) {
     code:
       "Rules: This is a container — add file children with parentId set to this element's ID. " +
       "Always split into multiple files: entry (.jsx), styles (.css), data (.js), components (.jsx). " +
+      "Filenames must be unique across the entire article (not just this code element). Use prefixes if multiple code elements need similar files (e.g. 'xor-app.jsx', 'adder-app.jsx'). " +
       "get_guide('code-and-files') covers editing patterns and element_patch usage.",
   };
   if (tips[type]) createResult.tip = tips[type];

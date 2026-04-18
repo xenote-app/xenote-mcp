@@ -49,20 +49,18 @@ function createMCPServer(sessionCtx) {
     {
       capabilities: { tools: {}, resources: {} },
       instructions:
-        "Xenote is a platform for interactive articles. Workspace → Folders → Articles → Elements.\n\n" +
+        "Xenote is a platform for interactive articles, built for AI co-authoring. All changes are live — edits appear instantly in the user's browser.\n\n" +
+        "Workspace → Folders → Articles → Elements.\n\n" +
         "Elements: text (HTML prose), code (file containers), web-runner (React in browser), box-runner (shell commands), kernel-runner (Python/Jupyter), images, table, iframe, excalidraw.\n\n" +
         "Text for prose, runners for interactive content. Code elements hold files; runners execute them.\n\n" +
-        "Execution environments:\n" +
-        "- Frontend (web-runner): React components in the browser, no backend needed\n" +
-        "- Backend (box-runner): any shell command (Node, Python, Rust, etc.), needs user's machine connected\n" +
-        "- Jupyter (kernel-runner): stateful Python cells, needs user's machine connected\n\n" +
+        "Execution: web-runner runs in the browser (no setup). box-runner and kernel-runner need the user's machine connected via Baklava.\n\n" +
         "Publishing: version({ action: 'create' }) snapshots and publishes. Other articles can import from published articles.\n\n" +
         "Tool responses include tips with critical rules. Guides (get_guide) go deeper: cross-article imports, Gen AI API, Vani messaging, widget APIs, theming details.\n\n" +
         "URLs:\n" +
         "- Editor: https://www.xenote.com/workspaces/{workspace}/{article}\n" +
         "- Published: https://xenote.com/{workspace}/{article}\n\n" +
         "Share editorUrl when you fetch/create, publicUrl when you publish.\n\n" +
-        "For working examples, fetch /references. For creative inspiration: /robo-diner (IoT robotics with Vani, cross-article imports, and hardware control), /casita (edu-tech with interactive games, widgets, and exercises), /logic-lab (edu-tech course with circuit simulator, requiredArticles for sequential unlocking, and cross-article component reuse).",
+        "For working examples, fetch /references. For creative inspiration: /robo-diner (IoT robotics), /casita (edu-tech games and widgets), /logic-lab (sequential course with component reuse).",
     },
   );
 
@@ -73,6 +71,7 @@ function createMCPServer(sessionCtx) {
     provider: provider,
     resolve: resolve,
     functions: sessionCtx.functions,
+    user: sessionCtx.user || null,
   };
 
   server.setRequestHandler(ListToolsRequestSchema, function () {

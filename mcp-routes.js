@@ -17,7 +17,7 @@ var TOKEN_CACHE_TTL = 50 * 60 * 1000;
 async function resolveToken(token) {
   var cached = tokenCache[token];
   if (cached && Date.now() - cached.ts < TOKEN_CACHE_TTL) {
-    return cached.customToken;
+    return { customToken: cached.customToken, user: cached.user };
   }
 
   var result = await httpsCallable(
@@ -26,8 +26,9 @@ async function resolveToken(token) {
   )({ token: token });
 
   var customToken = result.data.customToken;
-  tokenCache[token] = { customToken: customToken, ts: Date.now() };
-  return customToken;
+  var user = { email: result.data.email || null, name: result.data.name || null };
+  tokenCache[token] = { customToken: customToken, user: user, ts: Date.now() };
+  return { customToken: customToken, user: user };
 }
 
 function extractToken(req) {
@@ -73,8 +74,8 @@ function register(app) {
       if (Date.now() - session.authTs > TOKEN_CACHE_TTL) {
         delete tokenCache[session.token];
         resolveToken(session.token)
-          .then(function (newCustomToken) {
-            return session.refresh(newCustomToken);
+          .then(function (resolved) {
+            return session.refresh(resolved.customToken);
           })
           .then(function () {
             session.authTs = Date.now();
@@ -107,9 +108,9 @@ function register(app) {
 
     // New session — initialize
     if (!sessionId && isInitializeRequest(req.body)) {
-      var customToken;
+      var resolved;
       try {
-        customToken = await resolveToken(token);
+        resolved = await resolveToken(token);
       } catch (e) {
         console.log("[POST /mcp] resolveToken failed:", e.message);
         res.status(403).json({ error: "Invalid or expired token" });
@@ -119,7 +120,7 @@ function register(app) {
       var appId = randomUUID();
       var sessionApp;
       try {
-        sessionApp = await createSessionApp(appId, customToken);
+        sessionApp = await createSessionApp(appId, resolved.customToken);
       } catch (e) {
         console.log("[POST /mcp] createSessionApp failed:", e.message);
         res.status(500).json({ error: "Failed to authenticate: " + e.message });
@@ -157,6 +158,7 @@ function register(app) {
         uid: sessionApp.uid,
         db: sessionApp.db,
         functions: sessionApp.functions,
+        user: resolved.user,
       });
 
       mcp.server.connect(transport).then(function () {
