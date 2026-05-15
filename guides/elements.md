@@ -5,11 +5,24 @@ Every element has: { id, type, settings, version }. Some also have content or en
 ## text
 Rich text as HTML (NOT markdown).
 - content: string (HTML)
-- Tags: <p>, <h2>, <h3>, <strong>, <em>, <ul>, <li>, <ol>, <a>, <code>, <pre>, <br>, <math>
+- Tags: <p>, <h2>, <h3>, <strong>, <em>, <ul>, <li>, <ol>, <a>, <code>, <pre>, <br>, <math>, <table>
 - <math> uses KaTeX syntax: `<math>x^2 + y^2 = z^2</math>` renders as inline math. Use standard LaTeX notation inside the tag.
 - Every paragraph must be wrapped in <p> tags
 - NEVER use markdown syntax (no #, **, -, backticks)
 - settings: { alignment?, columns? (null|2|3), css? (""|"gray"), spellCheck? }
+
+### Tables (inside text)
+Tables live inside text elements as HTML. Shape:
+```
+<table>
+  <tr><th><p>Header 1</p></th><th><p>Header 2</p></th></tr>
+  <tr><td><p>cell</p></td><td><p>cell</p></td></tr>
+</table>
+```
+- Every cell's inner content MUST be wrapped in `<p>` (cell content is `block+`).
+- First row uses `<th>` for headers. Do NOT emit `<thead>` or `<tbody>` — the schema is flat.
+- Cell attributes: `colspan`, `rowspan`, `colwidth` (resizing-managed; safe to omit).
+- No `align` attribute on cells. Alignment goes on the inner `<p>` via `class="text-center"` or `class="text-right"`.
 
 ## code
 Container for file children — don't put code in content. See **xenote://guides/code-and-files** for full details.
@@ -40,11 +53,6 @@ Python kernel runner. See **xenote://guides/backend** for full details.
 Image gallery.
 - entries: [{ filename (required, local filename (upload or pulled) or https URL), caption? }]
 - settings: { galleryType? (null|"classic"), widthMode? ("small"|"medium"|"full"), aspectRatio? ("auto"|"1.7778"|"1.5000"|"1.3333"|"1.0000"), alignment? ("left"|"center"|"right"), hasBorder? }
-
-## table
-Editable data table.
-- entries: { columns: [{ value, width, type ("text"|"number"), alignment, prefix?, suffix? }], rows: { 0: [{ value }, ...], 1: [...], ... } }
-- settings: { styling? ("plain"|"striped"), filename? }
 
 ## iframe
 Embed external content.

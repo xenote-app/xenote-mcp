@@ -4,7 +4,7 @@
 
 Before building any interactive content, read in order:
 1. `overview` - hierarchy, element types, execution environments
-2. `elements` - what goes in text vs runner vs table
+2. `elements` - what goes in text vs runner
 3. `frontend` - runner creation, file splitting, isChromeless
 4. This guide - theming, layout, core imports
 

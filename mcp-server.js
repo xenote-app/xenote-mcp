@@ -51,7 +51,7 @@ function createMCPServer(sessionCtx) {
       instructions:
         "Xenote is a platform for interactive articles, built for AI co-authoring. All changes are live — edits appear instantly in the user's browser.\n\n" +
         "Workspace → Folders → Articles → Elements.\n\n" +
-        "Elements: text (HTML prose), code (file containers), web-runner (React in browser), box-runner (shell commands), kernel-runner (Python/Jupyter), images, table, iframe, excalidraw.\n\n" +
+        "Elements: text (HTML prose), code (file containers), web-runner (React in browser), box-runner (shell commands), kernel-runner (Python/Jupyter), images, iframe, excalidraw.\n\n" +
         "Text for prose, runners for interactive content. Code elements hold files; runners execute them.\n\n" +
         "Execution: web-runner runs in the browser (no setup). box-runner and kernel-runner need the user's machine connected via Baklava.\n\n" +
         "Publishing: version({ action: 'create' }) snapshots and publishes. Other articles can import from published articles.\n\n" +

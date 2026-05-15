@@ -422,7 +422,6 @@ var DEFAULT_SETTINGS = {
     fitting: "cover",
     fillerColor: null,
   },
-  table: { styling: null, filename: null },
   iframe: {
     embedUrl: "",
     widthMode: "content",
@@ -1434,9 +1433,6 @@ function summarizeElement(el, children) {
       break;
     case "images":
       summary.imageCount = el.entries ? el.entries.length : 0;
-      break;
-    case "table":
-      summary.title = el.settings ? el.settings.title : null;
       break;
     case "iframe":
       summary.embedUrl = el.settings ? el.settings.embedUrl : null;

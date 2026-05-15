@@ -10,7 +10,7 @@ Workspace → Folders → Articles → Elements
 An article is like a notebook: an ordered list of elements (content blocks).
 
 ## Element Model
-- **Simple elements**: text, images, table, iframe, excalidraw — standalone content blocks
+- **Simple elements**: text, images, iframe, excalidraw — standalone content blocks (text can embed HTML tables)
 - **Code elements**: IDE containers that hold file elements (like a mini file explorer)
 - **Runner elements**: execute code from file elements and display output
 

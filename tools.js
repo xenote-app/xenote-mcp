@@ -132,7 +132,6 @@ var tools = [
             "kernel-runner",
             "images",
             "iframe",
-            "table",
             "excalidraw",
           ],
           description:
@@ -144,7 +143,6 @@ var tools = [
             'box-runner: get_guide("backend") before use. settings: { command (required, e.g. "node app.js") }\n' +
             'kernel-runner: get_guide("backend") before use. content is Python code, no parentId needed\n' +
             "images: uses entries not content. entries: [{ filename (required, local filename (upload or pulled) or https URL), caption? }]. settings: { galleryType?, widthMode?, aspectRatio?, alignment?, hasBorder?, fitting? ('cover'|'contain'), fillerColor? }\n" +
-            "table: uses entries for columns/rows. settings: { styling?, filename? }\n" +
             "iframe: settings: { embedUrl (required), widthMode?, aspectRatio?, alignment?, hasBorder? }\n" +
             "excalidraw: content is JSON.stringify of elements array. settings: { maxWidth?, percentWidth?, caption?, alignment?, hasBorder?, hasPadding?, backgroundColor? }",
         },
