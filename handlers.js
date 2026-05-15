@@ -69,11 +69,31 @@ async function fetch_handler(args, ctx) {
   // Root: list workspaces
   if (path === "/" || path === "") {
     var userInfo = await ctx.provider.fetchUserInfo(ctx.uid);
+    var userDomains = await ctx.provider.fetchUserDomains(ctx.uid);
     var domainOrder =
       userInfo && userInfo.domainOrder ? userInfo.domainOrder : [];
-    var workspaces = [];
+
+    // Union: domainOrder first (preserves user-set order, includes external
+    // domains not in the subcollection), then subcollection ids not yet in
+    // domainOrder (newly created workspaces).
+    var seen = {};
+    var orderedIds = [];
     for (var i = 0; i < domainOrder.length; i++) {
-      var d = await ctx.provider.fetchDomain(domainOrder[i]);
+      if (!seen[domainOrder[i]]) {
+        seen[domainOrder[i]] = true;
+        orderedIds.push(domainOrder[i]);
+      }
+    }
+    for (var n = 0; n < userDomains.length; n++) {
+      if (!seen[userDomains[n].id]) {
+        seen[userDomains[n].id] = true;
+        orderedIds.push(userDomains[n].id);
+      }
+    }
+
+    var workspaces = [];
+    for (var j = 0; j < orderedIds.length; j++) {
+      var d = await ctx.provider.fetchDomain(orderedIds[j]);
       if (d) workspaces.push({ slug: d.slug, title: d.title, description: d.description || null, id: d.id });
     }
     var userName = (userInfo && userInfo.name) || (ctx.user && ctx.user.name) || null;

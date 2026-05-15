@@ -233,6 +233,17 @@ function createProvider(db) {
     return snap.exists() ? snap.data() : null;
   }
 
+  async function fetchUserDomains(uid) {
+    var q = query(
+      collection(db, "userInfos", uid, "domains"),
+      orderBy("createdAt"),
+    );
+    var snap = await getDocs(q);
+    return snap.docs.map(function (d) {
+      return { id: d.id, ...d.data() };
+    });
+  }
+
   // ── Presence ───────────────────────────────────────────────────────────
 
   async function getPresence(uid) {
@@ -316,6 +327,7 @@ function createProvider(db) {
     fetchVersion: fetchVersion,
     updateVersion: _updateVersion,
     fetchUserInfo: fetchUserInfo,
+    fetchUserDomains: fetchUserDomains,
     getPresence: getPresence,
     setPresence: setPresence,
     clearPresence: clearPresence,
