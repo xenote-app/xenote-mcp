@@ -32,6 +32,7 @@ var handlerMap = {
   public_fetch: handlers.public_fetch,
   element_get: handlers.element_get,
   element_create: handlers.element_create,
+  elements_create: handlers.elements_create,
   element_update: handlers.element_update,
   element_patch: handlers.element_patch,
   element_delete: handlers.element_delete,

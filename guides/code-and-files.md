@@ -3,8 +3,9 @@
 ## code element — the IDE container
 Create this FIRST before adding any files.
 - type: "code"
-- settings.layout: "collapsed" — shows file list only, click to expand. Use for large files (50+ lines) or multi-file projects.
-- settings.layout: "" or omit — inline editor visible in document. Use for small reference files.
+- settings.layout: "collapsed" — DEFAULT for nearly all cases. Shows the file list, expands to a full IDE on click. Keeps the article compact while the source stays one click away.
+- settings.layout: "" — inline editor always visible. Use only when the code itself is part of the contextual reading (e.g. the prose teaches by walking through this code line by line). This is the exception, not the norm.
+- Not a file-size decision.
 - Other settings: isHiddenOnPublish?, isReadOnly?, autoHeight?, hasLineNumbers?, lineWrapping?, title? (group name)
 
 A code element starts empty — add file elements inside it.
@@ -27,6 +28,18 @@ A code element starts empty — add file elements inside it.
 2. element_create({ type: "file", parentId: "abc", content: "...", settings: { filename: "app.jsx" } })
 3. element_create({ type: "file", parentId: "abc", content: "...", settings: { filename: "styles.css" } })
 4. Create a runner element targeting a file (see "frontend" or "backend" guides)
+
+### Faster: elements_create (batch)
+Build the whole scaffold in one call. Use '@<index>' to reference earlier batch items:
+```
+elements_create({ articlePath, elements: [
+  { type: "code", settings: { layout: "collapsed" } },             // @0
+  { type: "file", parentId: "@0", content: "...", settings: { filename: "app.jsx" } },
+  { type: "file", parentId: "@0", content: "...", settings: { filename: "styles.css" } },
+  { type: "web-runner", settings: { target: "app.jsx" } },
+]})
+```
+Fails atomically: on any error, every element created so far is deleted.
 
 ## Multi-File Structure (IMPORTANT)
 ALWAYS split code into separate files by concern. NEVER put all code in one file.

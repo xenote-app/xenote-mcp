@@ -56,9 +56,18 @@ function expandTypographyPreset(presetId) {
 // ── Read-only Tools ──────────────────────────────────────────────────────────
 
 async function get_guide_handler(args) {
-  var guide = args.guide;
+  var guide = args && args.guide;
+  var available = Object.keys(guides);
+  if (!guide) {
+    return (
+      "Available guides: " + available.join(", ") + ".\n\n" +
+      "Call get_guide({ guide: '<name>' }) to read one."
+    );
+  }
   if (!guides[guide]) {
-    throw new Error("Guide not found: " + guide);
+    throw new Error(
+      "Guide '" + guide + "' not found. Available: " + available.join(", ") + ".",
+    );
   }
   return guides[guide];
 }
@@ -265,7 +274,10 @@ async function element_get(args, ctx) {
   if (!args.articlePath)
     throw new Error(
       "Missing required param 'articlePath'. Got params: " +
-        Object.keys(args).join(", "),
+        Object.keys(args).join(", ") +
+        (args.path !== undefined
+          ? ". Note: element_* tools use 'articlePath' (the folder tool uses 'path' — easy to mix up). Did you mean articlePath: '" + args.path + "'?"
+          : ""),
     );
   if (!args.id)
     throw new Error(
@@ -466,7 +478,10 @@ async function element_create(args, ctx) {
   if (!args.articlePath)
     throw new Error(
       "Missing required param 'articlePath'. Got params: " +
-        Object.keys(args).join(", "),
+        Object.keys(args).join(", ") +
+        (args.path !== undefined
+          ? ". Note: element_* tools use 'articlePath' (the folder tool uses 'path' — easy to mix up). Did you mean articlePath: '" + args.path + "'?"
+          : ""),
     );
   if (!args.type)
     throw new Error(
@@ -540,7 +555,12 @@ async function element_create(args, ctx) {
       articleId: articleId,
       data: data,
     });
-    var fileCreateResult = { id: fileResult.id, type: type, parentId: parentId };
+    var fileCreateResult = {
+      id: fileResult.id,
+      type: type,
+      parentId: parentId,
+      editorUrl: "https://www.xenote.com/workspaces" + args.articlePath,
+    };
     var lineCount = (content || "").split("\n").length;
     if (lineCount > 150) {
       fileCreateResult.warning =
@@ -569,7 +589,12 @@ async function element_create(args, ctx) {
     Object.assign({}, layout, { order: order }),
   );
 
-  var createResult = { id: result.id, type: type, insertAt: insertAt };
+  var createResult = {
+    id: result.id,
+    type: type,
+    insertAt: insertAt,
+    editorUrl: "https://www.xenote.com/workspaces" + args.articlePath,
+  };
   if ((layout.type || "scroll") === "grid") {
     createResult.warning = "This is a grid article. Set the element's position with article_update({ layoutConfig: { grid: { elements: { \"" + result.id + "\": { id: \"" + result.id + "\", x: 0, y: 0, w: 4, h: 4 } } } } }) or it will be invisible.";
   }
@@ -592,8 +617,9 @@ async function element_create(args, ctx) {
       "get_guide('backend') covers machines, rich output, and env vars.",
     code:
       "Rules: This is a container — add file children with parentId set to this element's ID. " +
-      "Always split into multiple files: entry (.jsx), styles (.css), data (.js), components (.jsx). " +
+      "Split files by concern (for a web-runner, that's usually entry, styles, components, data; for a node/python script, it's app + helpers + config). " +
       "Filenames must be unique across the entire article (not just this code element). Use prefixes if multiple code elements need similar files (e.g. 'xor-app.jsx', 'adder-app.jsx'). " +
+      "Default to layout: 'collapsed' — it shows the file list and expands to a full IDE on click, keeping the article compact. Use layout: '' only when the code itself is part of the contextual reading (the prose teaches by walking through this code). Not a file-size decision. " +
       "get_guide('code-and-files') covers editing patterns and element_patch usage.",
   };
   if (tips[type]) createResult.tip = tips[type];
@@ -601,11 +627,99 @@ async function element_create(args, ctx) {
   return createResult;
 }
 
+function resolveBatchRef(value, created) {
+  if (typeof value !== "string" || value.charAt(0) !== "@") return value;
+  var idx = parseInt(value.slice(1), 10);
+  if (isNaN(idx) || idx < 0 || idx >= created.length) {
+    throw new Error(
+      "Bad batch reference '" + value + "': index out of range (have " + created.length + " created so far).",
+    );
+  }
+  return created[idx].id;
+}
+
+async function elements_create(args, ctx) {
+  if (!args.articlePath)
+    throw new Error(
+      "Missing required param 'articlePath'. Got params: " +
+        Object.keys(args).join(", ") +
+        (args.path !== undefined
+          ? ". Note: element_* tools use 'articlePath' (the folder tool uses 'path' — easy to mix up). Did you mean articlePath: '" + args.path + "'?"
+          : ""),
+    );
+  if (!Array.isArray(args.elements) || args.elements.length === 0)
+    throw new Error(
+      "Missing or empty 'elements' array. Pass elements: [{ type, content?, settings?, parentId?, afterId? }, ...]. " +
+        "Use '@<index>' to reference earlier elements in this batch (e.g. parentId: '@0').",
+    );
+
+  var pathData = await ctx.resolve.resolvePath(args.articlePath);
+  var domainId = pathData.domainId;
+  var articleId = pathData.articleId;
+
+  var created = [];
+
+  try {
+    for (var i = 0; i < args.elements.length; i++) {
+      var spec = args.elements[i];
+      var childArgs = Object.assign({}, spec, { articlePath: args.articlePath });
+      if (spec.parentId !== undefined) {
+        childArgs.parentId = resolveBatchRef(spec.parentId, created);
+      }
+      if (spec.afterId !== undefined) {
+        childArgs.afterId = resolveBatchRef(spec.afterId, created);
+      }
+      var result = await element_create(childArgs, ctx);
+      created.push(result);
+    }
+  } catch (e) {
+    var createdIds = {};
+    var deleted = 0;
+    for (var r = created.length - 1; r >= 0; r--) {
+      createdIds[created[r].id] = true;
+      try {
+        await ctx.provider.deleteElement({
+          domainId: domainId,
+          articleId: articleId,
+          elementId: created[r].id,
+        });
+        deleted++;
+      } catch (_) { /* best-effort */ }
+    }
+    // Filter created ids out of the CURRENT layout (don't restore a stale
+    // snapshot — would erase any concurrent edits).
+    try {
+      var currentLayout = await ctx.resolve.fetchArticleLayout(domainId, articleId);
+      var newOrder = (currentLayout.order || []).filter(function (oid) {
+        return !createdIds[oid];
+      });
+      var cleanedLayout = Object.assign({}, currentLayout, { order: newOrder });
+      if (cleanedLayout.grid && cleanedLayout.grid.elements) {
+        var gridElements = Object.assign({}, cleanedLayout.grid.elements);
+        for (var gid in createdIds) delete gridElements[gid];
+        cleanedLayout.grid = Object.assign({}, cleanedLayout.grid, {
+          elements: gridElements,
+        });
+      }
+      await ctx.resolve.updateLayout(domainId, articleId, cleanedLayout);
+    } catch (_) { /* best-effort */ }
+    throw new Error(
+      "Batch create failed at index " + created.length + ": " + e.message +
+        ". Rolled back " + deleted + " of " + created.length + " element(s).",
+    );
+  }
+
+  return { created: created };
+}
+
 async function element_update(args, ctx) {
   if (!args.articlePath)
     throw new Error(
       "Missing required param 'articlePath'. Got params: " +
-        Object.keys(args).join(", "),
+        Object.keys(args).join(", ") +
+        (args.path !== undefined
+          ? ". Note: element_* tools use 'articlePath' (the folder tool uses 'path' — easy to mix up). Did you mean articlePath: '" + args.path + "'?"
+          : ""),
     );
   if (!args.id)
     throw new Error(
@@ -625,10 +739,11 @@ async function element_update(args, ctx) {
     args.data.content === undefined &&
     args.data.settings === undefined &&
     args.data.entries === undefined &&
-    args.data.editorData === undefined
+    args.data.editorData === undefined &&
+    args.data.parentId === undefined
   ) {
     throw new Error(
-      "Empty data object — nothing to update. Pass { data: { content, settings, or entries } }. " +
+      "Empty data object — nothing to update. Pass { data: { content, settings, entries, or parentId } }. " +
         "If you're trying to diagnose an issue, use element_get to read current content instead.",
     );
   }
@@ -658,6 +773,26 @@ async function element_update(args, ctx) {
     );
   }
 
+  if (data.parentId !== undefined) {
+    if (!data.parentId) {
+      throw new Error(
+        "parentId must be the ID of another element. Null/empty would orphan this element (file elements aren't in layout.order, so a null-parent file becomes invisible). To remove an element entirely, use element_delete.",
+      );
+    }
+    try {
+      await ctx.provider.fetchElement({
+        domainId: domainId,
+        articleId: articleId,
+        elementId: data.parentId,
+      });
+    } catch (e) {
+      throw new Error(
+        "parentId '" + data.parentId + "' not found in this article. " +
+          "Make sure the new parent element exists before reparenting.",
+      );
+    }
+  }
+
   var updateData = { version: version };
   if (data.content !== undefined) updateData.content = data.content;
   if (data.entries !== undefined) updateData.entries = data.entries;
@@ -666,6 +801,7 @@ async function element_update(args, ctx) {
     updateData.settings = Object.assign({}, el.settings || {}, mergeSettings);
   }
   if (data.editorData !== undefined) updateData.editorData = data.editorData;
+  if (data.parentId !== undefined) updateData.parentId = data.parentId;
 
   await ctx.provider.updateElement({
     domainId: domainId,
@@ -689,7 +825,10 @@ async function element_patch(args, ctx) {
   if (!args.articlePath)
     throw new Error(
       "Missing required param 'articlePath'. Got params: " +
-        Object.keys(args).join(", "),
+        Object.keys(args).join(", ") +
+        (args.path !== undefined
+          ? ". Note: element_* tools use 'articlePath' (the folder tool uses 'path' — easy to mix up). Did you mean articlePath: '" + args.path + "'?"
+          : ""),
     );
   if (!args.id)
     throw new Error(
@@ -794,7 +933,10 @@ async function element_move(args, ctx) {
   if (!args.articlePath)
     throw new Error(
       "Missing required param 'articlePath'. Got params: " +
-        Object.keys(args).join(", "),
+        Object.keys(args).join(", ") +
+        (args.path !== undefined
+          ? ". Note: element_* tools use 'articlePath' (the folder tool uses 'path' — easy to mix up). Did you mean articlePath: '" + args.path + "'?"
+          : ""),
     );
   if (!args.id)
     throw new Error(
@@ -1151,6 +1293,53 @@ async function version_handler(args, ctx) {
 
 // ── Folder Handler (via Cloud Functions) ─────────────────────────────────────
 
+// Port of the app's lib/slugify — keeps MCP-generated slugs identical to
+// what the editor UI produces.
+function slugify(str) {
+  var a = "àáâäæãåāăąçćčđďèéêëēėęěğǵḧîïíīįìłḿñńǹňôöòóœøōõőṕŕřßśšşșťțûüùúūǘůűųẃẍÿýžźż·/_,:;";
+  var b = "aaaaaaaaaacccddeeeeeeeegghiiiiiilmnnnnoooooooooprrsssssttuuuuuuuuuwxyyzzz------";
+  var p = new RegExp(a.split("").join("|"), "g");
+  return String(str)
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(p, function (c) { return b.charAt(a.indexOf(c)); })
+    .replace(/&/g, "-and-")
+    .replace(/[^\w\-]+/g, "")
+    .replace(/\-\-+/g, "-")
+    .replace(/^-+/, "")
+    .replace(/-+$/, "");
+}
+
+// Derive a valid, unique slug from a title. Mirrors the app's createSlug:
+// slugify, then append -1, -2, … until the path is free. The cloud function
+// re-checks for collisions, so the dedup here is best-effort convenience.
+async function deriveUniqueSlug(ctx, domainId, parentId, title, kind) {
+  var base = slugify(title || "");
+  // Leave room for a "-N" dedup suffix within the 64-char limit.
+  if (base.length > 62) base = base.slice(0, 62).replace(/-+$/, "");
+  if (base.length < 2) {
+    throw new Error(
+      "Could not derive a valid slug from " + kind + " title " +
+        JSON.stringify(title || "") + ". Pass an explicit slug: " +
+        "2-64 chars, lowercase letters/numbers/hyphens.",
+    );
+  }
+  var parentFolder = await ctx.provider.fetchFolder({
+    domainId: domainId,
+    folderId: parentId,
+  });
+  var basePathKey = parentFolder && parentFolder.path ? parentFolder.path : null;
+  if (!basePathKey) return base; // can't dedup — let the cloud function guard
+  for (var i = 0; i < 10; i++) {
+    var candidate = base + (i ? "-" + i : "");
+    var existing = await ctx.provider.fetchPath(basePathKey + "\\" + candidate);
+    if (!existing) return candidate;
+  }
+  throw new Error(
+    "Could not find an available slug near '" + base + "' — pass an explicit slug.",
+  );
+}
+
 async function folder_handler(args, ctx) {
   var action = args.action;
 
@@ -1165,11 +1354,22 @@ async function folder_handler(args, ctx) {
   if (!domainId) throw new Error("path is required for folder operations");
 
   if (action === "createArticle") {
-    var parentId = args.parentId || resolvedParentId;
+    var parentId = resolvedParentId;
     if (!parentId)
       throw new Error(
-        "parentId is required, or articlePath must point to a folder",
+        "path must point to a workspace or folder — that is where the article is created. " +
+          "It resolved to an article instead. Use a path like '/my-workspace' or '/my-workspace/my-folder'.",
       );
+    if (!args.title)
+      throw new Error(
+        "title is required for createArticle (it is also used to generate the slug if none is given).",
+      );
+    var articleSlug = args.slug;
+    if (!articleSlug) {
+      articleSlug = await deriveUniqueSlug(
+        ctx, domainId, parentId, args.title, "article",
+      );
+    }
     var result = await httpsCallable(
       ctx.functions,
       "createArticleCall",
@@ -1177,25 +1377,39 @@ async function folder_handler(args, ctx) {
       domainId: domainId,
       parentId: parentId,
       title: args.title,
-      slug: args.slug,
+      slug: articleSlug,
       description: args.description,
       layoutType: args.layoutType,
       insertAt: args.insertAt,
     });
     var createResult = result.data;
-    if (args.slug && args.path) {
-      createResult.editorUrl =
-        "https://www.xenote.com/workspaces" + args.path + "/" + args.slug;
-    }
+    var articlePath = args.path.replace(/\/$/, "") + "/" + articleSlug;
+    createResult.slug = articleSlug;
+    createResult.path = articlePath;
+    createResult.editorUrl =
+      "https://www.xenote.com/workspaces" + articlePath;
+    createResult.tip =
+      "Pass this 'path' as the articlePath argument to element_create and other element_* tools.";
     return createResult;
   }
 
   if (action === "createFolder") {
-    var folderParentId = args.parentId || resolvedParentId;
+    var folderParentId = resolvedParentId;
     if (!folderParentId)
       throw new Error(
-        "parentId is required, or articlePath must point to a folder",
+        "path must point to a workspace or folder — that is where the folder is created. " +
+          "It resolved to an article instead. Use a path like '/my-workspace' or '/my-workspace/my-folder'.",
       );
+    var folderSlug = args.slug;
+    if (!folderSlug) {
+      if (!args.title)
+        throw new Error(
+          "createFolder requires a title (used to generate the slug) or an explicit slug.",
+        );
+      folderSlug = await deriveUniqueSlug(
+        ctx, domainId, folderParentId, args.title, "folder",
+      );
+    }
     var result2 = await httpsCallable(
       ctx.functions,
       "createFolderCall",
@@ -1203,9 +1417,15 @@ async function folder_handler(args, ctx) {
       domainId: domainId,
       parentId: folderParentId,
       title: args.title,
-      slug: args.slug,
+      slug: folderSlug,
     });
-    return result2.data;
+    var folderResult = result2.data;
+    var folderPath = args.path.replace(/\/$/, "") + "/" + folderSlug;
+    if (folderResult && typeof folderResult === "object") {
+      folderResult.slug = folderSlug;
+      folderResult.path = folderPath;
+    }
+    return folderResult;
   }
 
   if (action === "deleteArticle") {
@@ -1514,6 +1734,7 @@ module.exports = {
   public_fetch: public_fetch_handler,
   element_get: element_get,
   element_create: element_create,
+  elements_create: elements_create,
   element_update: element_update,
   element_patch: element_patch,
   element_delete: element_delete,

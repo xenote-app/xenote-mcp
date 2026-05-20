@@ -4,8 +4,9 @@ Articles have two layout types: **scroll** (default) and **grid**.
 
 Set layout when creating an article:
 ```
-folder({ action: "createArticle", path: "/workspace", title: "My Article", slug: "my-article", layoutType: "scroll" })
+folder({ action: "createArticle", path: "/workspace", title: "My Article", layoutType: "scroll" })
 ```
+`path` is the parent workspace or folder. `slug` is optional — it's auto-derived from the title unless you pass one. The response includes the new article's `path`; use that as `articlePath` for element tools.
 
 Or change an existing article:
 ```

@@ -28,6 +28,7 @@ Tables live inside text elements as HTML. Shape:
 Container for file children — don't put code in content. See **xenote://guides/code-and-files** for full details.
 - content: leave empty
 - settings: { layout? ("collapsed"|""), isReadOnly? (false=editable, true=read-only, "hidden"=hidden on publish), title? (group label, e.g. "Components", "Utils") }
+- layout: default to "collapsed" — shows the file list, expands to a full IDE on click. Use "" only when the code itself is part of the contextual reading (the prose walks through this code). Not a file-size decision.
 
 ## file
 A file attached to a code or runner element. See **xenote://guides/code-and-files** for full details.

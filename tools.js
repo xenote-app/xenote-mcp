@@ -137,7 +137,7 @@ var tools = [
           description:
             "Element type. Per-type requirements:\n" +
             "text: content is HTML (<p>, <h2>, <strong>, <math>, etc), not markdown. Don't add a title — the article title is already displayed. settings: { alignment?, columns?, css?, spellCheck? }\n" +
-            'code: get_guide("code-and-files") before use. container for file children — don\'t put code in content. settings: { layout: "collapsed" | "" }\n' +
+            'code: get_guide("code-and-files") before use. container for file children — don\'t put code in content. settings: { layout: "collapsed" (default — file list, expands on click) | "" (only when the code is part of the contextual reading) }\n' +
             'file: get_guide("code-and-files") before use. requires parentId (code element ID) and settings: { filename (required), isPulled? }\n' +
             'web-runner: get_guide("frontend") before use. create code+files first. React 19 is in importMap by default — additional imports are merged, not replaced. settings: { target (required, .jsx filename), importMap?, isChromeless?, layout?, height?, autoHeight? }\n' +
             'box-runner: get_guide("backend") before use. settings: { command (required, e.g. "node app.js") }\n' +
@@ -165,9 +165,45 @@ var tools = [
     },
   },
   {
+    name: "elements_create",
+    description:
+      "Create multiple elements in one call — useful for scaffolding a code container with several files and a runner. " +
+      "Use '@<index>' in parentId/afterId to reference earlier elements in the batch (e.g. parentId: '@0' = first created). " +
+      "Fails atomically: on any error, every element created so far is deleted and the layout is reverted.",
+    annotations: {
+      title: "Create Multiple Elements",
+      destructiveHint: false,
+      openWorldHint: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        articlePath: ARTICLE_PATH_PROP.articlePath,
+        elements: {
+          type: "array",
+          description:
+            "Array of element specs (same shape as element_create args, minus articlePath). Created in order. " +
+            "Reference earlier batch items in parentId/afterId via '@<index>'.",
+          items: {
+            type: "object",
+            properties: {
+              type: { type: "string" },
+              content: { type: "string" },
+              settings: { type: "object" },
+              parentId: { type: "string" },
+              afterId: { type: "string" },
+            },
+            required: ["type"],
+          },
+        },
+      },
+      required: ["articlePath", "elements"],
+    },
+  },
+  {
     name: "element_update",
     description:
-      "Replace element content or settings entirely. Use for settings changes, small elements, or full rewrites. For files over ~50 lines, prefer element_patch to avoid accidental data loss.",
+      "Replace element content or settings entirely. Use for settings changes, small elements, or full rewrites. For files over ~50 lines, prefer element_patch to avoid accidental data loss. To reparent (e.g. move a file from one code element to another) pass data.parentId — no delete/recreate needed.",
     annotations: {
       title: "Update Element",
       destructiveHint: false,
@@ -186,6 +222,11 @@ var tools = [
             content: { type: "string" },
             settings: { type: "object" },
             entries: { type: "array", items: { type: "object" } },
+            parentId: {
+              type: "string",
+              description:
+                "New parent element ID (reparent, e.g. move a file to a different code element). Must be a valid element ID — null/empty is rejected.",
+            },
           },
         },
         expectedVersion: {
@@ -423,7 +464,8 @@ var tools = [
         path: {
           type: "string",
           description:
-            "Workspace or folder path, e.g. '/my-workspace' or '/my-workspace/my-folder'.",
+            "Workspace or folder path, e.g. '/my-workspace' or '/my-workspace/my-folder'. " +
+            "For createArticle/createFolder this is the parent the new item is created in. Always pass a path, never a workspace id.",
         },
         action: {
           type: "string",
@@ -441,9 +483,16 @@ var tools = [
           ],
           description: "The folder operation to perform",
         },
-        title: { type: "string" },
-        slug: { type: "string" },
-        parentId: { type: "string" },
+        title: {
+          type: "string",
+          description:
+            "Title for createArticle/createFolder. Required for createArticle.",
+        },
+        slug: {
+          type: "string",
+          description:
+            "URL slug (lowercase letters/numbers/hyphens). Optional for createArticle/createFolder — auto-derived from the title if omitted. Pass explicitly only to override.",
+        },
         description: { type: "string" },
         layoutType: { type: "string", enum: ["scroll", "grid"] },
         articleId: { type: "string" },
