@@ -2,7 +2,7 @@
 
 Xenote is a browser-based computational notebook for education and research.
 
-**Guide reading order**: overview → elements → frontend → design. Always read the design guide before building interactive content.
+**Guide reading order**: overview → elements → frontend. Always read the frontend guide before building interactive content — it covers theming, design, and dark mode.
 
 ## Hierarchy
 Workspace → Folders → Articles → Elements

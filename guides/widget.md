@@ -4,7 +4,7 @@ A widget is a web runner that uses the Editor Interface to persist data, manage 
 
 The code is the same as any web runner (React components in .jsx files), but widgets use special APIs for persistence and authoring.
 
-For theming (colors, fonts, dark mode), read the design guide: `get_guide('design')`.
+For theming (colors, fonts, dark mode), see the Theming & design section of `get_guide('frontend')`.
 
 ## Recommended Settings
 - **isChromeless: true** — strips the toolbar and console so the output blends into the document

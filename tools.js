@@ -17,7 +17,7 @@ var tools = [
   {
     name: "get_guide",
     description:
-      "Read a Xenote guide for detailed patterns and APIs. Guides cover: cross-article imports, Gen AI API, Vani messaging, widget APIs, theming/design tokens, debug loop. Available: overview, elements, code-and-files, frontend, backend, widget, layout, design.",
+      "Read a Xenote guide for detailed patterns and APIs. Guides cover: cross-article imports, Gen AI API, Vani messaging, widget APIs, theming/design tokens, debug loop. Available: overview, elements, code-and-files, frontend, backend, widget, layout.",
     annotations: {
       title: "Read Guide",
       readOnlyHint: true,
@@ -37,7 +37,6 @@ var tools = [
             "backend",
             "widget",
             "layout",
-            "design",
           ],
           description: "Guide name to read",
         },

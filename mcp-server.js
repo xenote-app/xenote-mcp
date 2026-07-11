@@ -13,6 +13,7 @@ var { createResolve } = require("./resolve");
 var tools = require("./tools");
 var handlers = require("./handlers");
 var guides = require("./guides");
+var { icons } = require("./icons");
 
 // Build resources from guides
 var resources = Object.keys(guides).map(function (key) {
@@ -46,10 +47,11 @@ var handlerMap = {
 
 function createMCPServer(sessionCtx) {
   var server = new MCPServer(
-    { name: "xenote", version: "2.0.0" },
+    { name: "xenote", title: "Xenote", version: "2.0.0", websiteUrl: "https://xenote.com", icons: icons },
     {
       capabilities: { tools: {}, resources: {} },
       instructions:
+        "Read the relevant guide and every tool description before acting. Skipping guides is the easiest way to waste tokens and frustrate users.\n\n" +
         "Xenote is a platform for interactive articles, built for AI co-authoring. All changes are live — edits appear instantly in the user's browser.\n\n" +
         "Workspace → Folders → Articles → Elements.\n\n" +
         "Elements: text (HTML prose), code (file containers), web-runner (React in browser), box-runner (shell commands), kernel-runner (Python/Jupyter), images, iframe, excalidraw.\n\n" +

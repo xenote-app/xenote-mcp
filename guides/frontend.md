@@ -82,8 +82,41 @@ Ask the user to attach a browser tab (presence indicator). Then:
 3. Read status, errors, and console logs from the response
 4. Fix and repeat
 
-## Theming
-For colors, fonts, and dark mode support, read the design guide: `get_guide('design')`.
+## Theming & design
+Always import the core stylesheet in your entry file. It provides reset, color system, typography wired to workspace fonts, form styling, design tokens, and automatic dark mode:
+```js
+import '/core/style/base.css';   // always
+import '/core/style/utils.css';  // optional — layout/spacing utilities
+import '/core/style/warm.css';   // optional — warm cream tint (pick warm OR cool, or neither)
+import '/core/style/cool.css';   // optional — cool blue-grey tint
+```
+
+**Never hardcode colors or fonts** — use the `--doc-*` CSS variables so dark mode works for free:
+- Colors: `--doc-bg`, `--doc-bg-subtle`, `--doc-text`, `--doc-text-secondary`, `--doc-text-muted`, `--doc-border`, `--doc-link`, `--doc-accent` (+ `--doc-accent-h` / `--doc-accent-c` for deriving shades)
+- Fonts: `--doc-font`, `--doc-font-header`, `--doc-font-mono`
+- Derive accent shades in CSS: `oklch(0.95 calc(var(--doc-accent-c) * 0.2) var(--doc-accent-h))`
+
+For a seamless blend into the document, set `body { background: transparent; }`.
+
+**Canvas:** CSS vars don't reach canvas draw calls — read the theme from JS instead:
+```js
+const { accentH, accentC } = window.xenote.theme;  // accentH 0–360, accentC 0–0.4; also .font, .fontHeader, .fontMono
+const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+ctx.fillStyle = `oklch(0.55 ${accentC} ${accentH})`;
+```
+Size the canvas from its container (`canvasRef.current.parentElement.clientWidth`), not from CSS.
+
+**Signaling interactivity:** `isChromeless` blends the runner into prose, so readers can't tell it's interactive. Use a `warm.css`/`cool.css` tint, visible controls, or `cursor: pointer`/`grab`. Reserve a transparent background for purely decorative content.
+
+**Structure:** prose belongs in text elements, never in a runner — if you're writing a `<p>` inside a component, move it to a text element. A typical article alternates `[text]` concept → `[web-runner]` app, with each runner's `[code]` element collapsed at the bottom of the article. Prose is auto-capped at 80ch; runners span the full column width. Page width is set per article (`normal` 52rem default, `wide` 64rem) via `folder`/`article_update`.
+
+### Design checklist
+- [ ] `import '/core/style/base.css'` in the entry file
+- [ ] `isChromeless: true` + `autoHeight: true` on the runner
+- [ ] No hardcoded colors or fonts — only `--doc-*`
+- [ ] No `max-width` or centering on the root element
+- [ ] Canvas uses `window.xenote.theme`
+- [ ] Tested in dark and light mode, and with warm/cool accents
 
 ## Chromeless Mode & Widgets
 Set isChromeless: true to strip the runner chrome (toolbar, console). The output blends into the document — ideal for visualizations, embedded tools, and widgets.
