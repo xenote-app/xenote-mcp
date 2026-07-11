@@ -69,7 +69,7 @@ var tools = [
   {
     name: "public_fetch",
     description:
-      "Fetch published content (yours or anyone's). Returns the currently published version, or a specific version with @slug suffix. Returns a publicUrl — share it with the user.",
+      "Fetch published content (yours or anyone's) — works like fetch but against the published version. '/workspace' lists the index, '/workspace/article' returns metadata + element summaries. Pass elementId for one element's full content (like element_get), or filename for a file's interface (import/export lines — ideal before importing); filename + offset/limit reads a range of the file. '@slug' suffix pins a specific version. Returns a publicUrl — share it with the user.",
     annotations: {
       title: "Fetch Published Content",
       readOnlyHint: true,
@@ -82,7 +82,25 @@ var tools = [
         path: {
           type: "string",
           description:
-            "Published path, e.g. '/workspace/article' or '/workspace/article@1.0.0'",
+            "Published article or version path, e.g. '/workspace/article' or '/workspace/article@1.0.0'. Never include a filename here — use the filename argument.",
+        },
+        elementId: {
+          type: "string",
+          description:
+            "Element ID (from the article's element summaries) — returns that element's full content",
+        },
+        filename: {
+          type: "string",
+          description:
+            "Filename in the published article — returns its interface (import/export lines), or content when offset/limit is given",
+        },
+        offset: {
+          type: "number",
+          description: "Line offset for reading content (with elementId or filename)",
+        },
+        limit: {
+          type: "number",
+          description: "Max lines to return (with elementId or filename)",
         },
       },
       required: ["path"],
@@ -91,7 +109,7 @@ var tools = [
   {
     name: "element_get",
     description:
-      "Get full content, settings, and version of a single element by ID. Use this to read file content that fetch only summarizes.",
+      "Get full content, settings, and version of a single element by ID. Use this to read file content that fetch only summarizes. Very large content is truncated with a pagination marker — continue with offset.",
     annotations: {
       title: "Get Element",
       readOnlyHint: true,
@@ -103,6 +121,11 @@ var tools = [
       properties: {
         articlePath: ARTICLE_PATH_PROP.articlePath,
         id: { type: "string", description: "Element ID" },
+        offset: {
+          type: "number",
+          description: "Line offset for paged reads of large content",
+        },
+        limit: { type: "number", description: "Max lines to return" },
       },
       required: ["articlePath", "id"],
     },
@@ -136,7 +159,7 @@ var tools = [
           description:
             "Element type. Per-type requirements:\n" +
             "text: content is HTML (<p>, <h2>, <strong>, <math>, etc), not markdown. Don't add a title — the article title is already displayed. settings: { alignment?, columns?, css?, spellCheck? }\n" +
-            'code: get_guide("code-and-files") before use. container for file children — don\'t put code in content. settings: { layout: "collapsed" (default — file list, expands on click) | "" (only when the code is part of the contextual reading) }\n' +
+            'code: get_guide("code-and-files") before use. container for file children — don\'t put code in content. settings: { layout: "collapsed" (default — file list, expands on click) | "" (only when the code is part of the contextual reading), isReadOnly: false (editable) | true (read-only) | "hidden" (invisible to readers — use when the page is an app/experience and the code is just plumbing) }\n' +
             'file: get_guide("code-and-files") before use. requires parentId (code element ID) and settings: { filename (required), isPulled? }\n' +
             'web-runner: get_guide("frontend") before use. create code+files first. React 19 is in importMap by default — additional imports are merged, not replaced. settings: { target (required, .jsx filename), importMap?, isChromeless?, layout?, height?, autoHeight? }\n' +
             'box-runner: get_guide("backend") before use. settings: { command (required, e.g. "node app.js") }\n' +
@@ -451,7 +474,7 @@ var tools = [
   {
     name: "folder",
     description:
-      "Manage folders and articles. Actions: createArticle, createFolder, deleteArticle, deleteFolder, move, reorder, addSection, editSection, deleteSection, renameSlug. createArticle returns an editorUrl — share it with the user. reorder moves any item (article, folder, or section) within the layout. Section actions manage grouping headers on the index page. createArticle appends to the end of the folder index — position it (reorder) and group with sections as folders grow. deleteArticle and deleteFolder are irreversible. renameSlug will break existing cross-article imports and published URLs.",
+      "Manage folders and articles. Actions: createArticle, createFolder, createWorkspace, deleteArticle, deleteFolder, move, reorder, addSection, editSection, deleteSection, renameSlug. createArticle returns an editorUrl — share it with the user. createWorkspace is for rare, deliberate use — most content belongs in an existing workspace. Workspace slugs are a global namespace (the public base URL) and accounts have a workspace limit, so always confirm title and slug with the user before creating; takes no path. reorder moves any item (article, folder, or section) within the layout. Section actions manage grouping headers on the index page. createArticle appends to the end of the folder index — position it (reorder) and group with sections as folders grow. deleteArticle and deleteFolder are irreversible. renameSlug will break existing cross-article imports and published URLs.",
     annotations: {
       title: "Manage Folders",
       destructiveHint: true,
@@ -464,13 +487,14 @@ var tools = [
           type: "string",
           description:
             "Workspace or folder path, e.g. '/my-workspace' or '/my-workspace/my-folder'. " +
-            "For createArticle/createFolder this is the parent the new item is created in. Always pass a path, never a workspace id.",
+            "For createArticle/createFolder this is the parent the new item is created in. Always pass a path, never a workspace id. Not used by createWorkspace.",
         },
         action: {
           type: "string",
           enum: [
             "createArticle",
             "createFolder",
+            "createWorkspace",
             "deleteArticle",
             "deleteFolder",
             "move",
@@ -485,12 +509,12 @@ var tools = [
         title: {
           type: "string",
           description:
-            "Title for createArticle/createFolder. Required for createArticle.",
+            "Title for createArticle/createFolder/createWorkspace. Required for createArticle and createWorkspace.",
         },
         slug: {
           type: "string",
           description:
-            "URL slug (lowercase letters/numbers/hyphens). Optional for createArticle/createFolder — auto-derived from the title if omitted. Pass explicitly only to override.",
+            "URL slug (lowercase letters/numbers/hyphens). Optional for createArticle/createFolder — auto-derived from the title if omitted. Required for createWorkspace (5-64 chars, user-confirmed — it becomes the workspace's public base URL).",
         },
         description: { type: "string" },
         layoutType: { type: "string", enum: ["scroll", "grid"] },

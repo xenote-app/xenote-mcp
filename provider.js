@@ -21,8 +21,9 @@ var {
   onSnapshot,
   serverTimestamp,
 } = require("firebase/firestore");
+var { ref, getDownloadURL } = require("firebase/storage");
 
-function createProvider(db) {
+function createProvider(db, storage) {
   // ── Paths ──────────────────────────────────────────────────────────────
 
   async function fetchPath(pathKey) {
@@ -226,6 +227,23 @@ function createProvider(db) {
     );
   }
 
+  // ── Version Elements (Cloud Storage) ───────────────────────────────────
+
+  // Published element snapshots live in Storage, not Firestore. Storage
+  // rules gate reads by canReadDomain — same as the browser viewer.
+  async function fetchVersionElements({ domainId, articleId, versionId }) {
+    var path =
+      "domain/" + domainId + "/article/" + articleId +
+      "/version/" + versionId + "/elements.json";
+    var url = await getDownloadURL(ref(storage, path));
+    var response = await fetch(url);
+    if (!response.ok)
+      throw new Error(
+        "Failed to download published elements (HTTP " + response.status + ")",
+      );
+    return await response.json(); // { [elementId]: elementData }
+  }
+
   // ── User Info ──────────────────────────────────────────────────────────
 
   async function fetchUserInfo(uid) {
@@ -325,6 +343,7 @@ function createProvider(db) {
     deleteElement: _deleteElement,
     fetchVersions: fetchVersions,
     fetchVersion: fetchVersion,
+    fetchVersionElements: fetchVersionElements,
     updateVersion: _updateVersion,
     fetchUserInfo: fetchUserInfo,
     fetchUserDomains: fetchUserDomains,

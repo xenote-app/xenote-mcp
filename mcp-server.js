@@ -67,7 +67,7 @@ function createMCPServer(sessionCtx) {
     },
   );
 
-  var provider = createProvider(sessionCtx.db);
+  var provider = createProvider(sessionCtx.db, sessionCtx.storage);
   var resolve = createResolve(provider);
   var ctx = {
     uid: sessionCtx.uid,

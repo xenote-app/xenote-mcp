@@ -53,7 +53,7 @@ Articles can require other articles to be completed before they unlock. Use `req
 ## Reading Content
 - fetch returns **summaries** for file elements (filename + lineCount only)
 - Use element_get(id) to read the full content of a specific file
-- Use public_fetch to read anyone's published articles
+- public_fetch mirrors this for anyone's published articles: summaries at the article path, then public_fetch with elementId for full content
 
 ## Running Code
 When a browser tab is attached (via the presence indicator), fetching an article navigates the browser to it. Use element_run to execute a runner and get back status, errors, and console logs.

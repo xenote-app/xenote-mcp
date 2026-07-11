@@ -138,29 +138,7 @@ async function fetch_handler(args, ctx) {
   });
   var layout =
     article && article.layout ? article.layout : { order: [], type: "scroll" };
-  var order = layout.order || [];
-
-  var byId = {};
-  for (var j = 0; j < elements.length; j++) byId[elements[j].id] = elements[j];
-  var childrenOf = {};
-  for (var k = 0; k < elements.length; k++) {
-    if (elements[k].parentId) {
-      if (!childrenOf[elements[k].parentId])
-        childrenOf[elements[k].parentId] = [];
-      childrenOf[elements[k].parentId].push(elements[k]);
-    }
-  }
-
-  var list = [];
-  for (var l = 0; l < order.length; l++) {
-    var el = byId[order[l]];
-    if (!el) continue;
-    list.push(summarizeElement(el, childrenOf[el.id]));
-    var ch = childrenOf[el.id] || [];
-    for (var m = 0; m < ch.length; m++) {
-      list.push(summarizeElement(ch[m], null));
-    }
-  }
+  var list = buildElementSummaries(elements, layout.order || []);
 
   return {
     type: "article",
@@ -185,10 +163,163 @@ async function fetch_handler(args, ctx) {
   };
 }
 
+// Version snapshots are immutable — cache parsed elements.json across
+// sessions. Access is authorized before this is reached (path + version doc
+// reads go through security rules).
+var versionElementsCache = {};
+var versionElementsCacheOrder = [];
+var VERSION_ELEMENTS_CACHE_MAX = 30;
+
+async function getVersionElements(ctx, domainId, articleId, versionId) {
+  var key = domainId + "/" + articleId + "/" + versionId;
+  if (versionElementsCache[key]) return versionElementsCache[key];
+  var map = await ctx.provider.fetchVersionElements({
+    domainId: domainId,
+    articleId: articleId,
+    versionId: versionId,
+  });
+  var elements = Object.keys(map).map(function (id) {
+    return Object.assign({}, map[id], { id: id });
+  });
+  versionElementsCache[key] = elements;
+  versionElementsCacheOrder.push(key);
+  if (versionElementsCacheOrder.length > VERSION_ELEMENTS_CACHE_MAX)
+    delete versionElementsCache[versionElementsCacheOrder.shift()];
+  return elements;
+}
+
+async function publishedArticleResult(ctx, args, basePath, domainId, articleId, ver) {
+  var result = {
+    type: "article",
+    path: args.path,
+    publicUrl: "https://xenote.com/" + basePath,
+    title: ver.article ? ver.article.title : null,
+    versionId: ver.id,
+    slug: ver.slug,
+    label: ver.label,
+    notes: ver.notes || null,
+    filenames: ver.filenames || [],
+    layout: ver.article ? ver.article.layout : null,
+  };
+  try {
+    var elements = await getVersionElements(ctx, domainId, articleId, ver.id);
+    var order =
+      (ver.article && ver.article.layout && ver.article.layout.order) || [];
+    result.elements = buildElementSummaries(elements, order);
+    result.tip =
+      "Pass elementId (with this same path) to get an element's full content.";
+  } catch (e) {
+    result.elementsError = "Element summaries unavailable: " + e.message;
+  }
+  return result;
+}
+
+async function publishedElementResult(ctx, args, domainId, articleId, versionId) {
+  var elements = await getVersionElements(ctx, domainId, articleId, versionId);
+  var el = null;
+  for (var i = 0; i < elements.length; i++) {
+    if (elements[i].id === args.elementId) { el = elements[i]; break; }
+  }
+  if (!el)
+    throw new Error(
+      "Element '" + args.elementId + "' not found in this published version. " +
+        "Fetch the article path (without elementId) to see element summaries and ids.",
+    );
+
+  var isBase64 = el.type === "file" && el.settings && el.settings.isBase64;
+  var result = {
+    id: el.id,
+    type: el.type,
+    parentId: el.parentId || null,
+    settings: el.settings || null,
+    entries: el.entries || null,
+  };
+  if (isBase64) {
+    result.content = "[base64 omitted]";
+    result.byteSize = (el.content || "").length;
+  } else if (el.content) {
+    var paged = paginateContent(el.content, args.offset, args.limit);
+    result.content = paged.content;
+    if (paged.pagination) result.pagination = paged.pagination;
+  } else {
+    result.content = null;
+  }
+  if (el.editorData !== undefined && el.editorData !== null)
+    result.editorData = el.editorData;
+  return result;
+}
+
+async function publishedFileResult(ctx, args, articleBasePath, domainId, articleId, ver, filename) {
+  var elements = await getVersionElements(ctx, domainId, articleId, ver.id);
+  var el = null;
+  for (var i = 0; i < elements.length; i++) {
+    var e = elements[i];
+    if (e.type === "file" && e.settings && e.settings.filename === filename) {
+      el = e;
+      break;
+    }
+  }
+  if (!el) {
+    var known = ver.filenames || [];
+    if (known.indexOf(filename) >= 0)
+      throw new Error(
+        "'" + filename + "' is an uploaded asset in this version — importable by path, but it has no code interface.",
+      );
+    throw new Error(
+      "File '" + filename + "' not found in this published version. Files: " +
+        (known.join(", ") || "(none)"),
+    );
+  }
+
+  var result = {
+    type: "file",
+    filename: filename,
+    elementId: el.id,
+    importPath: "/" + articleBasePath + "/" + filename,
+    pinnedImportPath: "/" + articleBasePath + "@" + ver.slug + "/" + filename,
+  };
+  if (el.settings && el.settings.isBase64) {
+    result.note = "Binary file — no code interface.";
+    result.byteSize = (el.content || "").length;
+    return result;
+  }
+  var content = el.content || "";
+
+  // With a range (offset/limit): return that window of content.
+  if (args.offset !== undefined || args.limit !== undefined) {
+    var paged = paginateContent(content, args.offset, args.limit);
+    result.content = paged.content;
+    if (paged.pagination) result.pagination = paged.pagination;
+    return result;
+  }
+
+  // Without a range: interface view — imports/exports only.
+  var lines = content.split("\n");
+  var imports = [];
+  var exportLines = [];
+  for (var l = 0; l < lines.length; l++) {
+    var t = lines[l].trim();
+    if (t.indexOf("import ") === 0) imports.push(t.slice(0, 200));
+    else if (t.indexOf("export ") === 0) exportLines.push(t.slice(0, 200));
+  }
+  result.lineCount = lines.length;
+  result.charCount = content.length;
+  result.imports = imports;
+  result.exports = exportLines;
+  result.tip =
+    "Interface view only. For content, add offset/limit, or use elementId '" +
+    el.id + "' for the full element.";
+  return result;
+}
+
 async function public_fetch_handler(args, ctx) {
   var path = args.path;
   if (path.startsWith("/")) path = path.slice(1);
   if (!path) throw new Error("Path is required");
+
+  var fileName = args.filename || null;
+  if (args.elementId && fileName)
+    throw new Error("Pass either elementId or filename, not both.");
 
   // Check for @version suffix
   var atIndex = path.indexOf("@");
@@ -214,25 +345,38 @@ async function public_fetch_handler(args, ctx) {
     });
     if (!ver) throw new Error("Version not found: " + args.path);
 
-    return {
-      type: "article",
-      path: args.path,
-      publicUrl: "https://xenote.com/" + basePath,
-      title: ver.article ? ver.article.title : null,
-      versionId: ver.id,
-      slug: ver.slug,
-      label: ver.label,
-      notes: ver.notes || null,
-      filenames: ver.filenames || [],
-      layout: ver.article ? ver.article.layout : null,
-    };
+    if (fileName)
+      return await publishedFileResult(
+        ctx, args, basePath, versionPathData.domainId, versionPathData.articleId, ver, fileName,
+      );
+    if (args.elementId)
+      return await publishedElementResult(
+        ctx, args, versionPathData.domainId, versionPathData.articleId, ver.id,
+      );
+    return await publishedArticleResult(
+      ctx, args, basePath, versionPathData.domainId, versionPathData.articleId, ver,
+    );
   }
 
   // No version specified: look up the base path
   var pathData = await ctx.provider.fetchPath(pathKey);
-  if (!pathData) throw new Error("Path not found: " + args.path);
+  if (!pathData) {
+    var lastSeg = path.split("/").pop();
+    throw new Error(
+      "Path not found: " + args.path +
+        (lastSeg.indexOf(".") !== -1
+          ? ". That looks like a file path — path must be the article path; pass the file separately: { path: '/" +
+            path.slice(0, path.length - lastSeg.length - 1) + "', filename: '" + lastSeg + "' }."
+          : ""),
+    );
+  }
 
   if (pathData.type === "folder") {
+    if (fileName || args.elementId)
+      throw new Error(
+        (fileName ? "filename" : "elementId") +
+          " only applies to article paths — '/" + path + "' is a folder.",
+      );
     return await fetchFolderContent(
       ctx,
       pathData.domainId,
@@ -253,18 +397,17 @@ async function public_fetch_handler(args, ctx) {
     });
     if (!version) throw new Error("Published version not found");
 
-    return {
-      type: "article",
-      path: args.path,
-      publicUrl: "https://xenote.com/" + basePath,
-      title: version.article ? version.article.title : null,
-      versionId: version.id,
-      slug: version.slug,
-      label: version.label,
-      notes: version.notes || null,
-      filenames: version.filenames || [],
-      layout: version.article ? version.article.layout : null,
-    };
+    if (fileName)
+      return await publishedFileResult(
+        ctx, args, basePath, pathData.domainId, pathData.articleId, version, fileName,
+      );
+    if (args.elementId)
+      return await publishedElementResult(
+        ctx, args, pathData.domainId, pathData.articleId, version.id,
+      );
+    return await publishedArticleResult(
+      ctx, args, basePath, pathData.domainId, pathData.articleId, version,
+    );
   }
 
   throw new Error("Unknown path type: " + pathData.type);
@@ -297,11 +440,19 @@ async function element_get(args, ctx) {
     type: el.type,
     version: el.version || 0,
     parentId: el.parentId || null,
-    content: isBase64 ? "[base64 omitted]" : el.content || null,
     settings: el.settings || null,
     entries: el.entries || null,
   };
-  if (isBase64) result.byteSize = (el.content || "").length;
+  if (isBase64) {
+    result.content = "[base64 omitted]";
+    result.byteSize = (el.content || "").length;
+  } else if (el.content) {
+    var paged = paginateContent(el.content, args.offset, args.limit);
+    result.content = paged.content;
+    if (paged.pagination) result.pagination = paged.pagination;
+  } else {
+    result.content = null;
+  }
   if (el.editorData !== undefined && el.editorData !== null)
     result.editorData = el.editorData;
   return result;
@@ -325,6 +476,7 @@ async function fetchFolderContent(ctx, domainId, folderId, path) {
   for (var i = 0; i < childFolders.length; i++) {
     children[childFolders[i].id] = {
       type: "folder",
+      id: childFolders[i].id,
       slug: childFolders[i].slug,
       title: childFolders[i].title || null,
     };
@@ -332,6 +484,7 @@ async function fetchFolderContent(ctx, domainId, folderId, path) {
   for (var j = 0; j < childArticles.length; j++) {
     children[childArticles[j].id] = {
       type: "article",
+      id: childArticles[j].id,
       slug: childArticles[j].slug,
       title: childArticles[j].title || null,
       description: childArticles[j].description || null,
@@ -349,9 +502,7 @@ async function fetchFolderContent(ctx, domainId, folderId, path) {
       if (item.type === "section") {
         items.push({ type: "section", id: item.id, title: item.title || null });
       } else if (children[item.id]) {
-        var child = children[item.id];
-        child.id = item.id;
-        items.push(child);
+        items.push(children[item.id]);
       }
     }
   } else {
@@ -620,6 +771,7 @@ async function element_create(args, ctx) {
       "Split files by concern (for a web-runner, that's usually entry, styles, components, data; for a node/python script, it's app + helpers + config). " +
       "Filenames must be unique across the entire article (not just this code element). Use prefixes if multiple code elements need similar files (e.g. 'xor-app.jsx', 'adder-app.jsx'). " +
       "Default to layout: 'collapsed' — it shows the file list and expands to a full IDE on click, keeping the article compact. Use layout: '' only when the code itself is part of the contextual reading (the prose teaches by walking through this code). Not a file-size decision. " +
+      "If readers don't need to see the code (the page is an app or experience, not a coding lesson), set isReadOnly: 'hidden' — the element disappears from the published page but stays editable here. " +
       "get_guide('code-and-files') covers editing patterns and element_patch usage.",
   };
   if (tips[type]) createResult.tip = tips[type];
@@ -864,17 +1016,17 @@ async function element_patch(args, ctx) {
     );
   }
 
-  var error = verifyEdits(originalContent, edits);
-  if (error) {
+  var applied = applyEdits(originalContent, edits);
+  if (applied.error) {
     throw new Error(
       "EDIT_FAILED: " +
-        error.message +
+        applied.error +
         " Check for special characters (×, →, curly quotes, unicode) that may differ from what you expect." +
         " Call element_get to see current content. If matching is difficult, use element_update with full content instead.",
     );
   }
 
-  var newContent = applyEdits(originalContent, edits);
+  var newContent = applied.content;
   await ctx.provider.updateElement({
     domainId: domainId,
     articleId: articleId,
@@ -1343,6 +1495,34 @@ async function deriveUniqueSlug(ctx, domainId, parentId, title, kind) {
 async function folder_handler(args, ctx) {
   var action = args.action;
 
+  // createWorkspace needs no path — handle before path resolution
+  if (action === "createWorkspace") {
+    if (!args.title) throw new Error("title is required for createWorkspace");
+    if (!args.slug)
+      throw new Error(
+        "slug is required for createWorkspace. It becomes the workspace's public base URL " +
+          "(xenote.com/<slug>) and can't be freely recycled — confirm it with the user first. " +
+          "5-64 chars, lowercase letters/numbers/hyphens.",
+      );
+    if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(args.slug) || args.slug.length > 64)
+      throw new Error(
+        "Invalid slug '" + args.slug + "' — use lowercase letters/numbers/hyphens " +
+          "(no leading/trailing hyphen), 5-64 chars.",
+      );
+    await httpsCallable(ctx.functions, "createDomainCall")({
+      slug: args.slug,
+      title: args.title,
+      isPrimary: false,
+    });
+    return {
+      path: "/" + args.slug,
+      slug: args.slug,
+      title: args.title,
+      editorUrl: "https://www.xenote.com/workspaces/" + args.slug,
+      tip: "Use path '/" + args.slug + "' with the fetch/folder tools to add content.",
+    };
+  }
+
   // Resolve domainId (and parentId for create actions) from path
   var domainId = null;
   var resolvedParentId = null;
@@ -1352,6 +1532,13 @@ async function folder_handler(args, ctx) {
     if (pathData.type === "folder") resolvedParentId = pathData.folderId;
   }
   if (!domainId) throw new Error("path is required for folder operations");
+
+  var needsFolderPath = { addSection: 1, editSection: 1, deleteSection: 1, reorder: 1 };
+  if (needsFolderPath[action] && !resolvedParentId)
+    throw new Error(
+      "path must point to a workspace or folder for " + action +
+        " — it resolved to an article. Use a path like '/my-workspace' or '/my-workspace/my-folder'.",
+    );
 
   if (action === "createArticle") {
     var parentId = resolvedParentId;
@@ -1675,6 +1862,63 @@ async function folder_handler(args, ctx) {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+// Order elements by layout order, with each parent's children listed after it.
+function buildElementSummaries(elements, order) {
+  var byId = {};
+  var childrenOf = {};
+  for (var i = 0; i < elements.length; i++) {
+    byId[elements[i].id] = elements[i];
+    if (elements[i].parentId) {
+      if (!childrenOf[elements[i].parentId])
+        childrenOf[elements[i].parentId] = [];
+      childrenOf[elements[i].parentId].push(elements[i]);
+    }
+  }
+  var list = [];
+  for (var l = 0; l < order.length; l++) {
+    var el = byId[order[l]];
+    if (!el) continue;
+    list.push(summarizeElement(el, childrenOf[el.id]));
+    var ch = childrenOf[el.id] || [];
+    for (var m = 0; m < ch.length; m++) {
+      list.push(summarizeElement(ch[m], null));
+    }
+  }
+  return list;
+}
+
+// Cap returned content size with line-based paging. Always returns at least
+// one line so paging progresses even on absurdly long single lines.
+var MAX_CONTENT_CHARS = 50000;
+
+function paginateContent(content, offset, limit) {
+  var lines = content.split("\n");
+  var start = Math.max(0, offset || 0);
+  var maxLines = limit || Infinity;
+  var out = [];
+  var chars = 0;
+  var i = start;
+  while (i < lines.length && out.length < maxLines) {
+    chars += lines[i].length + 1;
+    if (out.length > 0 && chars > MAX_CONTENT_CHARS) break;
+    out.push(lines[i]);
+    i++;
+  }
+  var result = { content: out.join("\n") };
+  if (start > 0 || i < lines.length) {
+    result.pagination = {
+      offset: start,
+      returnedLines: out.length,
+      totalLines: lines.length,
+      truncated: i < lines.length,
+    };
+    if (i < lines.length)
+      result.pagination.tip =
+        "Content continues — call again with offset: " + i + ".";
+  }
+  return result;
+}
+
 function summarizeElement(el, children) {
   var summary = { id: el.id, type: el.type, version: el.version || 0 };
   if (el.parentId) summary.parentId = el.parentId;
@@ -1722,14 +1966,21 @@ function summarizeElement(el, children) {
   return summary;
 }
 
-function verifyEdits(content, edits) {
+// Apply edits sequentially — edit N runs against the content edits 1..N-1
+// produced. All-or-nothing: returns { error } before any edit is considered
+// applied, or { content } with the final result.
+function applyEdits(content, edits) {
   for (var i = 0; i < edits.length; i++) {
     var edit = edits[i];
+    if (!edit.old_string) {
+      return { error: "Edit " + (i + 1) + ": old_string must be a non-empty string." };
+    }
     if (!content.includes(edit.old_string)) {
       return {
-        edit: edit,
-        message:
-          "old_string not found in content. Make sure it matches exactly (including whitespace and indentation).",
+        error:
+          "Edit " + (i + 1) + ": old_string not found in content" +
+          (i > 0 ? " (as it stands after the preceding edits)" : "") +
+          ". Make sure it matches exactly (including whitespace and indentation).",
       };
     }
     if (!edit.replace_all) {
@@ -1737,25 +1988,16 @@ function verifyEdits(content, edits) {
       var secondIndex = content.indexOf(edit.old_string, firstIndex + 1);
       if (secondIndex !== -1) {
         return {
-          edit: edit,
-          message:
-            "old_string is not unique — found multiple occurrences. Include more surrounding context or use replace_all.",
+          error:
+            "Edit " + (i + 1) + ": old_string is not unique — found multiple occurrences. Include more surrounding context or use replace_all.",
         };
       }
     }
+    content = edit.replace_all
+      ? content.split(edit.old_string).join(edit.new_string)
+      : content.replace(edit.old_string, edit.new_string);
   }
-  return null;
-}
-
-function applyEdits(content, edits) {
-  for (var i = 0; i < edits.length; i++) {
-    if (edits[i].replace_all) {
-      content = content.split(edits[i].old_string).join(edits[i].new_string);
-    } else {
-      content = content.replace(edits[i].old_string, edits[i].new_string);
-    }
-  }
-  return content;
+  return { content: content };
 }
 
 var versionRegex = /^(\d+)\.(\d+)\.(\d+)(?:-([a-z]+)\.(\d+))?$/;

@@ -158,6 +158,7 @@ function register(app) {
         uid: sessionApp.uid,
         db: sessionApp.db,
         functions: sessionApp.functions,
+        storage: sessionApp.storage,
         user: resolved.user,
       });
 

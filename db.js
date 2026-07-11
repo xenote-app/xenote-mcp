@@ -12,6 +12,10 @@ var {
   getFunctions,
   connectFunctionsEmulator,
 } = require("firebase/functions");
+var {
+  getStorage,
+  connectStorageEmulator,
+} = require("firebase/storage");
 var { FIREBASE_CONFIG, IS_EMULATOR, EMULATOR_PORTS } = require("./config");
 
 // Shared unauthenticated app — used only for the initial
@@ -36,6 +40,7 @@ async function createSessionApp(sessionId, customToken) {
   var auth = getAuth(app);
   var db = getFirestore(app);
   var functions = getFunctions(app);
+  var storage = getStorage(app);
 
   if (IS_EMULATOR) {
     connectAuthEmulator(auth, "http://localhost:" + EMULATOR_PORTS.auth);
@@ -45,6 +50,7 @@ async function createSessionApp(sessionId, customToken) {
       "localhost",
       EMULATOR_PORTS.functions,
     );
+    connectStorageEmulator(storage, "localhost", EMULATOR_PORTS.storage);
   }
 
   await signInWithCustomToken(auth, customToken);
@@ -52,6 +58,7 @@ async function createSessionApp(sessionId, customToken) {
   return {
     db: db,
     functions: functions,
+    storage: storage,
     uid: auth.currentUser.uid,
     refresh: function (newCustomToken) {
       return signInWithCustomToken(auth, newCustomToken);

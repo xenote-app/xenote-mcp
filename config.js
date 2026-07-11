@@ -14,6 +14,7 @@ var EMULATOR_PORTS = {
   firestore: 5001,
   functions: 5002,
   auth: 5003,
+  storage: 5004,
 };
 
 var XENOTE_AUTH_URL =

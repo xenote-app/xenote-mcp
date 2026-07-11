@@ -6,7 +6,8 @@ Create this FIRST before adding any files.
 - settings.layout: "collapsed" — DEFAULT for nearly all cases. Shows the file list, expands to a full IDE on click. Keeps the article compact while the source stays one click away.
 - settings.layout: "" — inline editor always visible. Use only when the code itself is part of the contextual reading (e.g. the prose teaches by walking through this code line by line). This is the exception, not the norm.
 - Not a file-size decision.
-- Other settings: isHiddenOnPublish?, isReadOnly?, autoHeight?, hasLineNumbers?, lineWrapping?, title? (group name)
+- settings.isReadOnly: false (editable playground) | true (read-only) | "hidden" (not shown on the published page — use when readers don't need to see the code, e.g. app/experience pages)
+- Other settings: autoHeight?, hasLineNumbers?, lineWrapping?, title? (group name)
 
 A code element starts empty — add file elements inside it.
 
