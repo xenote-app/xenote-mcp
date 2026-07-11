@@ -1390,6 +1390,47 @@ async function folder_handler(args, ctx) {
       "https://www.xenote.com/workspaces" + articlePath;
     createResult.tip =
       "Pass this 'path' as the articlePath argument to element_create and other element_* tools.";
+
+    // Attach the folder index with organizing feedback — agents act on tool
+    // responses far more reliably than on guides. Best-effort: creation
+    // already succeeded, so never fail the call over index feedback.
+    try {
+      var indexItems =
+        (await fetchFolderContent(ctx, domainId, parentId, args.path)).items || [];
+      var sectionCount = 0;
+      var articleCount = 0;
+      var newItemId = null;
+      for (var fi = 0; fi < indexItems.length; fi++) {
+        if (indexItems[fi].type === "section") {
+          sectionCount++;
+        } else if (indexItems[fi].type === "article") {
+          articleCount++;
+          if (indexItems[fi].slug === articleSlug) newItemId = indexItems[fi].id;
+        }
+      }
+
+      var organizeTip = null;
+      if (sectionCount > 0) {
+        organizeTip =
+          "The article was appended at the end, outside any section (see folderIndex). If it belongs under one, " +
+          "reorder with itemId '" + (newItemId || "?") + "' and afterItemId of the section (or an article in it); " +
+          "if none fit, addSection — confirm with the user if unsure.";
+      } else if (articleCount >= 5) {
+        organizeTip =
+          articleCount + " articles and no sections — the index is getting hard to scan. Grouping into categories " +
+          "(addSection, then reorder articles under them) helps the user; apply if obvious, else suggest one.";
+      } else if (articleCount > 1) {
+        organizeTip =
+          "Appended to the end of the index — reorder (itemId '" + (newItemId || "?") +
+          "') if it belongs next to related content.";
+      }
+      if (organizeTip) {
+        createResult.folderIndex = indexItems.map(function (it) {
+          return { type: it.type, id: it.id, title: it.title };
+        });
+        createResult.organizeTip = organizeTip;
+      }
+    } catch (ignore) {}
     return createResult;
   }
 

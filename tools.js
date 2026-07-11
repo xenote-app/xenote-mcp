@@ -451,7 +451,7 @@ var tools = [
   {
     name: "folder",
     description:
-      "Manage folders and articles. Actions: createArticle, createFolder, deleteArticle, deleteFolder, move, reorder, addSection, editSection, deleteSection, renameSlug. createArticle returns an editorUrl — share it with the user. reorder moves any item (article, folder, or section) within the layout. Section actions manage grouping headers on the index page. deleteArticle and deleteFolder are irreversible. renameSlug will break existing cross-article imports and published URLs.",
+      "Manage folders and articles. Actions: createArticle, createFolder, deleteArticle, deleteFolder, move, reorder, addSection, editSection, deleteSection, renameSlug. createArticle returns an editorUrl — share it with the user. reorder moves any item (article, folder, or section) within the layout. Section actions manage grouping headers on the index page. createArticle appends to the end of the folder index — position it (reorder) and group with sections as folders grow. deleteArticle and deleteFolder are irreversible. renameSlug will break existing cross-article imports and published URLs.",
     annotations: {
       title: "Manage Folders",
       destructiveHint: true,
