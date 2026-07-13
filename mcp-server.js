@@ -45,6 +45,18 @@ var handlerMap = {
   element_run: handlers.element_run,
 };
 
+// Client-agnostic tool inventory for the instructions block. Some MCP clients
+// (Claude Code, Codex) defer tool schemas and load them one at a time, so a
+// tool the model hasn't loaded yet reads as "missing" even though the server
+// exposes it. The instructions block is the one channel every client feeds to
+// the model, so listing what exists here fixes the discovery gap portably.
+// Built from the tools array so it never drifts.
+var toolManifest = tools
+  .map(function (t) {
+    return t.name + " (" + ((t.annotations && t.annotations.title) || t.name) + ")";
+  })
+  .join(", ");
+
 function createMCPServer(sessionCtx) {
   var server = new MCPServer(
     { name: "xenote", title: "Xenote", version: "2.0.0", websiteUrl: "https://xenote.com", icons: icons },
@@ -59,6 +71,8 @@ function createMCPServer(sessionCtx) {
         "Execution: web-runner runs in the browser (no setup). box-runner and kernel-runner need the user's machine connected via Baklava.\n\n" +
         "Publishing: version({ action: 'create' }) snapshots and publishes. Other articles can import from published articles.\n\n" +
         "Tool responses include tips with critical rules. Guides (get_guide) go deeper: cross-article imports, Gen AI API, Vani messaging, widget APIs, theming details.\n\n" +
+        "This server's tools: " + toolManifest + ". " +
+        "If your client loads tool schemas lazily, they load one at a time — a tool listed here is available even if you haven't loaded it yet; load it before calling.\n\n" +
         "URLs:\n" +
         "- Editor: https://www.xenote.com/workspaces/{workspace}/{article}\n" +
         "- Published: https://xenote.com/{workspace}/{article}\n\n" +
@@ -84,6 +98,10 @@ function createMCPServer(sessionCtx) {
   server.setRequestHandler(CallToolRequestSchema, async function (request) {
     var name = request.params.name;
     var args = request.params.arguments || {};
+
+    // Titles are plain text; LLMs often HTML-escape them (e.g. "&amp;").
+    // Normalize back to real characters before handling.
+    if (typeof args.title === "string") args.title = handlers.decodeEntities(args.title);
 
     var handler = handlerMap[name];
     if (!handler) {

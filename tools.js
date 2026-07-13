@@ -47,7 +47,7 @@ var tools = [
   {
     name: "fetch",
     description:
-      "Fetch your live content. '/' lists workspaces, '/workspace' lists folder contents, '/workspace/article' returns article metadata + element summaries. Articles include an editorUrl — share it with the user so they can view the article.",
+      "Read your live workspaces, folders, and articles by path — start here to see what exists. '/' lists workspaces, '/workspace' lists folder contents, '/workspace/article' returns article metadata + element summaries. Articles include an editorUrl — share it with the user so they can view the article.",
     annotations: {
       title: "Fetch Content",
       readOnlyHint: true,
@@ -133,7 +133,7 @@ var tools = [
   {
     name: "element_create",
     description:
-      "Create a new element. Response includes tips with critical rules for complex types.",
+      "Create one element of any type (text, code, file, runners, images, iframe, excalidraw); for several at once, use elements_create. Response includes tips with critical rules for complex types.",
     annotations: {
       title: "Create Element",
       destructiveHint: false,
@@ -225,7 +225,7 @@ var tools = [
   {
     name: "element_update",
     description:
-      "Replace element content or settings entirely. Use for settings changes, small elements, or full rewrites. For files over ~50 lines, prefer element_patch to avoid accidental data loss. To reparent (e.g. move a file from one code element to another) pass data.parentId — no delete/recreate needed.",
+      "Replace an element's content or settings entirely; for small edits to large files, use element_patch. Use for settings changes, small elements, or full rewrites. For files over ~50 lines, prefer element_patch to avoid accidental data loss. To reparent (e.g. move a file from one code element to another) pass data.parentId — no delete/recreate needed.",
     annotations: {
       title: "Update Element",
       destructiveHint: false,
@@ -262,7 +262,7 @@ var tools = [
   {
     name: "element_patch",
     description:
-      "Performs exact string replacements in element content. Preferred over element_update for files over ~50 lines. The edit will FAIL if old_string is not found or is not unique.",
+      "Replace exact strings in element content — prefer over element_update for small edits to large files (over ~50 lines). The edit will FAIL if old_string is not found or is not unique.",
     annotations: {
       title: "Patch Element",
       destructiveHint: false,
@@ -437,7 +437,7 @@ var tools = [
   {
     name: "version",
     description:
-      "Manage article version snapshots. Actions: create, list, update, delete, revert. create with isPublic: true (default) auto-publishes. To publish/unpublish later, use update with isPublished: true/false. list returns all versions with isPublic and isPublished flags. delete and revert are irreversible.",
+      "Publish an article (create a snapshot), and list, revert, or delete versions. Actions: create, list, update, delete, revert. create with isPublic: true (default) auto-publishes. To publish/unpublish later, use update with isPublished: true/false. list returns all versions with isPublic and isPublished flags. delete and revert are irreversible.",
     annotations: {
       title: "Manage Versions",
       destructiveHint: true,
@@ -474,7 +474,7 @@ var tools = [
   {
     name: "folder",
     description:
-      "Manage folders and articles. Actions: createArticle, createFolder, createWorkspace, deleteArticle, deleteFolder, move, reorder, addSection, editSection, deleteSection, renameSlug. createArticle returns an editorUrl — share it with the user. createWorkspace is for rare, deliberate use — most content belongs in an existing workspace. Workspace slugs are a global namespace (the public base URL) and accounts have a workspace limit, so always confirm title and slug with the user before creating; takes no path. reorder moves any item (article, folder, or section) within the layout. Section actions manage grouping headers on the index page. createArticle appends to the end of the folder index — position it (reorder) and group with sections as folders grow. deleteArticle and deleteFolder are irreversible. renameSlug will break existing cross-article imports and published URLs.",
+      "Create and organize workspaces, folders, articles, and sections (createArticle, createFolder, reorder, addSection …). Actions: createArticle, createFolder, createWorkspace, deleteArticle, deleteFolder, move, reorder, addSection, editSection, deleteSection, renameSlug. createArticle returns an editorUrl — share it with the user. createWorkspace is for rare, deliberate use — most content belongs in an existing workspace. Workspace slugs are a global namespace (the public base URL) and accounts have a workspace limit, so always confirm title and slug with the user before creating; takes no path. reorder moves any item (article, folder, or section) within the layout. Section actions manage grouping headers on the index page. createArticle appends to the end of the folder index — position it (reorder) and group with sections as folders grow. deleteArticle and deleteFolder are irreversible. renameSlug will break existing cross-article imports and published URLs.",
     annotations: {
       title: "Manage Folders",
       destructiveHint: true,

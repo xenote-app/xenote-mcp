@@ -1445,6 +1445,34 @@ async function version_handler(args, ctx) {
 
 // ── Folder Handler (via Cloud Functions) ─────────────────────────────────────
 
+// Decode HTML entities that LLMs tend to introduce into plain-text fields
+// (e.g. a title "Cats & Dogs" arriving as "Cats &amp; Dogs"). Titles are plain
+// text, not HTML, so we normalize them back to real characters.
+function decodeEntities(str) {
+  if (typeof str !== "string" || str.indexOf("&") === -1) return str;
+  var named = {
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    quot: '"',
+    apos: "'",
+    nbsp: " ",
+  };
+  return str.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, function (m, body) {
+    if (body.charAt(0) === "#") {
+      var code =
+        body.charAt(1) === "x" || body.charAt(1) === "X"
+          ? parseInt(body.slice(2), 16)
+          : parseInt(body.slice(1), 10);
+      // Out-of-range code points make String.fromCodePoint throw — leave the
+      // malformed entity as-is rather than failing the whole tool call.
+      return isNaN(code) || code > 0x10ffff ? m : String.fromCodePoint(code);
+    }
+    var lower = body.toLowerCase();
+    return Object.prototype.hasOwnProperty.call(named, lower) ? named[lower] : m;
+  });
+}
+
 // Port of the app's lib/slugify — keeps MCP-generated slugs identical to
 // what the editor UI produces.
 function slugify(str) {
@@ -1526,8 +1554,29 @@ async function folder_handler(args, ctx) {
   // Resolve domainId (and parentId for create actions) from path
   var domainId = null;
   var resolvedParentId = null;
+  var createActions = { createArticle: 1, createFolder: 1 };
   if (args.path) {
-    var pathData = await ctx.resolve.resolvePath(args.path);
+    var pathData;
+    try {
+      pathData = await ctx.resolve.resolvePath(args.path);
+    } catch (e) {
+      // For create actions, path is the existing PARENT container — a bare
+      // "Path not found" reads as a tool failure. Clarify that the parent is
+      // what's missing, and that the new item's slug must not be in the path.
+      // Only rewrite genuine not-found errors; let provider failures through.
+      if (createActions[action] && /^Path not found/.test(e.message)) {
+        var segs = String(args.path).replace(/^\/+|\/+$/g, "").split("/");
+        var parent = "/" + segs.slice(0, -1).join("/");
+        throw new Error(
+          "Parent path not found: '" + args.path + "'. For " + action +
+            ", path must be the EXISTING workspace/folder to create inside — not the new item's path. " +
+            "Do not include the new slug in it" +
+            (segs.length > 1 ? " (did you mean parent '" + parent + "'?)" : "") +
+            ". Check the parent slug is correct; fetch the workspace to list valid paths.",
+        );
+      }
+      throw e;
+    }
     domainId = pathData.domainId;
     if (pathData.type === "folder") resolvedParentId = pathData.folderId;
   }
@@ -2027,6 +2076,7 @@ module.exports = {
   version: version_handler,
   folder: folder_handler,
   element_run: element_run,
+  decodeEntities: decodeEntities,
 };
 
 async function element_run(args, ctx) {
