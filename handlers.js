@@ -547,7 +547,10 @@ var DEFAULT_SETTINGS = {
   text: { alignment: null, spellCheck: true, css: "", columns: null },
   code: {
     layout: "",
-    isReadOnly: false,
+    // Hidden on publish by default: MCP builds apps/experiences where code is
+    // plumbing for a runner, so readers see the output, not the source. Callers
+    // pass isReadOnly: false (playground) or true (read-only) to show it.
+    isReadOnly: "hidden",
     autoHeight: true,
     height: 300,
     hasLineNumbers: false,
@@ -768,10 +771,11 @@ async function element_create(args, ctx) {
       "get_guide('backend') covers machines, rich output, and env vars.",
     code:
       "Rules: This is a container — add file children with parentId set to this element's ID. " +
+      "Best practice: give it a descriptive settings.title naming what it builds (e.g. '3D Lattice Model' or 'Sorting Visualizer') rather than leaving it unset. " +
       "Split files by concern (for a web-runner, that's usually entry, styles, components, data; for a node/python script, it's app + helpers + config). " +
       "Filenames must be unique across the entire article (not just this code element). Use prefixes if multiple code elements need similar files (e.g. 'xor-app.jsx', 'adder-app.jsx'). " +
       "Default to layout: 'collapsed' — it shows the file list and expands to a full IDE on click, keeping the article compact. Use layout: '' only when the code itself is part of the contextual reading (the prose teaches by walking through this code). Not a file-size decision. " +
-      "If readers don't need to see the code (the page is an app or experience, not a coding lesson), set isReadOnly: 'hidden' — the element disappears from the published page but stays editable here. " +
+      "Hidden on the published page by default (readers see the runner's output, not the source; still editable here). To show the code — a coding lesson or an editable playground — set isReadOnly: false (editable) or true (read-only). " +
       "get_guide('code-and-files') covers editing patterns and element_patch usage.",
   };
   if (tips[type]) createResult.tip = tips[type];
@@ -1547,7 +1551,7 @@ async function folder_handler(args, ctx) {
       slug: args.slug,
       title: args.title,
       editorUrl: "https://www.xenote.com/workspaces/" + args.slug,
-      tip: "Use path '/" + args.slug + "' with the fetch/folder tools to add content.",
+      tip: "Add content at path '/" + args.slug + "' — create an article with folder(action: createArticle).",
     };
   }
 
