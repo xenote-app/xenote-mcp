@@ -20,6 +20,7 @@ var {
   deleteField,
   onSnapshot,
   serverTimestamp,
+  Timestamp,
 } = require("firebase/firestore");
 var { ref, getDownloadURL } = require("firebase/storage");
 
@@ -276,8 +277,24 @@ function createProvider(db, storage) {
     };
     if (data.path !== undefined) presenceData.path = data.path;
     if (data.clientName) presenceData.clientName = data.clientName;
-    if (data.lastAction) presenceData.lastAction = data.lastAction;
+    // merge: the browser tab co-writes attachedTabId into this doc — a plain
+    // overwrite would silently detach the tab on every tool call.
     await setDoc(doc(db, "mcpPresence", uid), presenceData, { merge: true });
+  }
+
+  // Append-only event stream: one doc per event under
+  // mcpPresence/{uid}/presenceLog. The frontend replays docs it hasn't seen
+  // (events can't coalesce away like fields on the state doc). A Firestore
+  // TTL policy on expiresAt handles cleanup — lazy deletion, so it caps
+  // growth; the frontend filters by createdAt for correctness.
+  var LOG_TTL_MS = 24 * 60 * 60 * 1000;
+
+  async function logEvent(uid, event) {
+    await addDoc(collection(db, "mcpPresence", uid, "presenceLog"), {
+      ...event,
+      createdAt: serverTimestamp(),
+      expiresAt: Timestamp.fromMillis(Date.now() + LOG_TTL_MS),
+    });
   }
 
   async function clearPresence(uid) {
@@ -349,6 +366,7 @@ function createProvider(db, storage) {
     fetchUserDomains: fetchUserDomains,
     getPresence: getPresence,
     setPresence: setPresence,
+    logEvent: logEvent,
     clearPresence: clearPresence,
     createRunRequest: createRunRequest,
     waitForRunResult: waitForRunResult,

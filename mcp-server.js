@@ -111,7 +111,8 @@ function createMCPServer(sessionCtx) {
       };
     }
 
-    // Update presence — track where the AI is focused
+    // Update presence — track where the AI is focused. Events (file edits,
+    // publishes) go to the presenceLog subcollection via provider.logEvent.
     var focusPath =
       args.articlePath || (name !== "public_fetch" ? args.path : null) || null;
     if (focusPath) {

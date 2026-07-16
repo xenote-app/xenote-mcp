@@ -966,6 +966,22 @@ async function element_update(args, ctx) {
     data: updateData,
   });
 
+  // Log the edit so an attached browser tab can react to it.
+  if (
+    el.type === "file" &&
+    data.content !== undefined &&
+    el.settings &&
+    el.settings.filename
+  )
+    ctx.provider
+      .logEvent(ctx.uid, {
+        type: "fileChange",
+        path: args.articlePath,
+        filename: el.settings.filename,
+        version: version,
+      })
+      .catch(function () {});
+
   var updateResult = { id: id, appliedData: data };
   if (el.type === "file" && data.content !== undefined) {
     var updatedLineCount = data.content.split("\n").length;
@@ -1037,6 +1053,16 @@ async function element_patch(args, ctx) {
     elementId: id,
     data: { content: newContent, version: version },
   });
+
+  if (el.type === "file" && el.settings && el.settings.filename)
+    ctx.provider
+      .logEvent(ctx.uid, {
+        type: "fileChange",
+        path: args.articlePath,
+        filename: el.settings.filename,
+        version: version,
+      })
+      .catch(function () {});
 
   return { id: id, edits: edits };
 }
@@ -1323,10 +1349,10 @@ async function version_handler(args, ctx) {
         versionId: args.versionId,
       });
       data.isPublished = true;
-      ctx.provider.setPresence(ctx.uid, {
-        toolName: "version",
+      ctx.provider.logEvent(ctx.uid, {
+        type: "published",
         path: args.articlePath,
-        lastAction: { type: "published", slug: args.versionId },
+        slug: args.versionId,
       }).catch(function () {});
     } else if (args.isPublished === false) {
       await httpsCallable(
@@ -1411,10 +1437,11 @@ async function version_handler(args, ctx) {
       versionResult.tip =
         "If other articles import from this one, they must also be republished to pick up these changes. " +
         "Their published versions still point to the previous snapshot until you republish them.";
-      ctx.provider.setPresence(ctx.uid, {
-        toolName: "version",
+      ctx.provider.logEvent(ctx.uid, {
+        type: "published",
         path: args.articlePath,
-        lastAction: { type: "published", label: version.label, slug: version.slug },
+        label: version.label,
+        slug: version.slug,
       }).catch(function () {});
     }
     return versionResult;
