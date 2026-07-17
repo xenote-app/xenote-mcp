@@ -68,6 +68,7 @@ function createMCPServer(sessionCtx) {
         "Workspace → Folders → Articles → Elements.\n\n" +
         "Elements: text (HTML prose), code (file containers), web-runner (React in browser), box-runner (shell commands), kernel-runner (Python/Jupyter), images, iframe, excalidraw.\n\n" +
         "Text for prose, runners for interactive content. Code elements hold files; runners execute them.\n\n" +
+        "Page width: normal is for prose-led reading. Set article_update({ pageWidth: 'wide' }) for experience-led articles with web runners, dashboards, maps, diagrams, tables, iframes, side-by-side content, or grid layouts. When in doubt, choose wide if the article's main value is visual or interactive.\n\n" +
         "Execution: web-runner runs in the browser (no setup). box-runner and kernel-runner need the user's machine connected via Baklava.\n\n" +
         "Publishing: version({ action: 'create' }) snapshots and publishes. Other articles can import from published articles.\n\n" +
         "Tool responses include tips with critical rules. Guides (get_guide) go deeper: cross-article imports, Gen AI API, Vani messaging, widget APIs, theming details.\n\n" +

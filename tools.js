@@ -347,7 +347,7 @@ var tools = [
   {
     name: "article_update",
     description:
-      "Update article title, description, context, settings, layout, or requiredArticles (prerequisites). requiredArticles changes take effect immediately — no republish needed. Title changes require republishing to update the published title.",
+      "Update article title, description, context, settings, layout, page width, or requiredArticles (prerequisites). Page-width rule: use normal for prose-led reading; use wide for articles centered on runners, dashboards, maps, diagrams, tables, iframes, side-by-side content, or grid layouts. Set wide when the main value is visual or interactive. requiredArticles changes take effect immediately — no republish needed. Title changes require republishing to update the published title.",
     annotations: {
       title: "Update Article",
       destructiveHint: false,
@@ -379,7 +379,7 @@ var tools = [
         pageWidth: {
           type: "string",
           enum: ["normal", "wide"],
-          description: "Article page width",
+          description: "Article page width. normal: prose-led reading. wide: interactive/visual content (web runners, dashboards, maps, diagrams, tables, iframes, side-by-side content, or grid layouts). Prefer wide when the article's main value is visual or interactive.",
         },
         hideTitle: {
           type: "boolean",

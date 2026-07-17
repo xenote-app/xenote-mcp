@@ -1,14 +1,35 @@
 const { randomUUID, createHash } = require("crypto");
-const { XENOTE_AUTH_URL } = require("./config");
+const { XENOTE_AUTH_URL, PUBLIC_BASE_URL } = require("./config");
 
 // In-memory stores
 const authCodes = {}; // code → { token, codeChallenge, redirectUri, expiresAt }
 const clients = {}; // client_id → { client_name, redirect_uris, ... }
+const pendingAuthorizations = {}; // request ID → validated authorization request
+const AUTH_TTL_MS = 5 * 60 * 1000;
 
 function getBaseUrl(req) {
+  if (PUBLIC_BASE_URL) return PUBLIC_BASE_URL.replace(/\/$/, "");
   var host = req.get("host");
   var proto = host.indexOf("localhost") === 0 ? "http" : "https";
   return proto + "://" + host;
+}
+
+function purgeExpired() {
+  var now = Date.now();
+  [authCodes, pendingAuthorizations].forEach(function (store) {
+    Object.keys(store).forEach(function (key) {
+      if (store[key].expiresAt < now) delete store[key];
+    });
+  });
+}
+
+function validRedirectUri(value) {
+  try {
+    var url = new URL(value);
+    return !!url.protocol && !url.hash;
+  } catch (_) {
+    return false;
+  }
 }
 
 function register(app) {
@@ -39,9 +60,16 @@ function register(app) {
 
   // Dynamic Client Registration (RFC 7591)
   app.post("/register", function (req, res) {
+    purgeExpired();
     var clientId = randomUUID();
     var clientName = req.body.client_name || "unknown";
     var redirectUris = req.body.redirect_uris || [];
+
+    if (!Array.isArray(redirectUris) || redirectUris.length === 0 ||
+        redirectUris.some(function (uri) { return typeof uri !== "string" || !validRedirectUri(uri); })) {
+      res.status(400).json({ error: "invalid_redirect_uri" });
+      return;
+    }
 
     clients[clientId] = {
       client_name: clientName,
@@ -57,13 +85,38 @@ function register(app) {
   });
 
   app.get("/authorize", function (req, res) {
+    purgeExpired();
+    var clientId = req.query.client_id || "";
     var redirectUri = req.query.redirect_uri || "";
     var state = req.query.state || "";
     var codeChallenge = req.query.code_challenge || "";
     var codeChallengeMethod = req.query.code_challenge_method || "";
 
-    var callbackBase = getBaseUrl(req) + "/authorize/callback";
+    var client = clients[clientId];
+    if (!client || client.redirect_uris.indexOf(redirectUri) === -1) {
+      res.status(400).json({ error: "invalid_request", error_description: "Unknown client or redirect URI" });
+      return;
+    }
+    if (req.query.response_type !== "code") {
+      res.status(400).json({ error: "unsupported_response_type" });
+      return;
+    }
+    if (!codeChallenge || codeChallengeMethod !== "S256") {
+      res.status(400).json({ error: "invalid_request", error_description: "PKCE S256 is required" });
+      return;
+    }
+
+    var requestId = randomUUID();
+    pendingAuthorizations[requestId] = {
+      clientId: clientId,
+      redirectUri: redirectUri,
+      state: state,
+      codeChallenge: codeChallenge,
+      expiresAt: Date.now() + AUTH_TTL_MS,
+    };
+    var callbackBase = getBaseUrl(req) + "/authorize/callback?request_id=" + encodeURIComponent(requestId);
     var params = [
+      "client_id=" + encodeURIComponent(clientId),
       "redirect_uri=" + encodeURIComponent(redirectUri),
       "state=" + encodeURIComponent(state),
       "code_challenge=" + encodeURIComponent(codeChallenge),
@@ -80,34 +133,37 @@ function register(app) {
   });
 
   app.get("/authorize/callback", function (req, res) {
+    purgeExpired();
     var token = req.query.token;
-    var redirectUri = req.query.redirect_uri || "";
-    var state = req.query.state || "";
-    var codeChallenge = req.query.code_challenge || "";
+    var requestId = req.query.request_id || "";
+    var authorization = pendingAuthorizations[requestId];
 
-    if (!token || !token.startsWith("xnt_")) {
+    if (!authorization || !token || !token.startsWith("xnt_")) {
       res.status(400).send("Missing or invalid token");
       return;
     }
+    delete pendingAuthorizations[requestId];
 
     var code = randomUUID();
     authCodes[code] = {
       token: token,
-      codeChallenge: codeChallenge,
-      redirectUri: redirectUri,
-      expiresAt: Date.now() + 5 * 60 * 1000,
+      codeChallenge: authorization.codeChallenge,
+      redirectUri: authorization.redirectUri,
+      clientId: authorization.clientId,
+      expiresAt: Date.now() + AUTH_TTL_MS,
     };
 
     var url =
-      redirectUri +
-      (redirectUri.indexOf("?") >= 0 ? "&" : "?") +
+      authorization.redirectUri +
+      (authorization.redirectUri.indexOf("?") >= 0 ? "&" : "?") +
       "code=" +
       encodeURIComponent(code);
-    if (state) url += "&state=" + encodeURIComponent(state);
+    if (authorization.state) url += "&state=" + encodeURIComponent(authorization.state);
     res.redirect(url);
   });
 
   app.post("/token", function (req, res) {
+    purgeExpired();
     var grantType = req.body.grant_type;
     var code = req.body.code;
     var codeVerifier = req.body.code_verifier;
@@ -156,6 +212,11 @@ function register(app) {
     }
 
     if (authCode.redirectUri && redirectUri !== authCode.redirectUri) {
+      delete authCodes[code];
+      res.status(400).json({ error: "invalid_grant" });
+      return;
+    }
+    if (req.body.client_id && req.body.client_id !== authCode.clientId) {
       delete authCodes[code];
       res.status(400).json({ error: "invalid_grant" });
       return;

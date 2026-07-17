@@ -779,6 +779,10 @@ async function element_create(args, ctx) {
       "get_guide('code-and-files') covers editing patterns and element_patch usage.",
   };
   if (tips[type]) createResult.tip = tips[type];
+  if (type === "code" && !data.settings.title) {
+    createResult.recommendation =
+      "Add a descriptive settings.title so readers know what this code builds (for example, 'Sorting Visualizer' or '3D Lattice Model').";
+  }
 
   return createResult;
 }
@@ -1072,43 +1076,12 @@ async function element_delete(args, ctx) {
   var domainId = pathData.domainId;
   var articleId = pathData.articleId;
   var id = args.id;
-
-  var elements = await ctx.provider.fetchArticleElements({
-    domainId: domainId,
-    articleId: articleId,
-  });
-  var children = elements.filter(function (e) {
-    return e.parentId === id;
-  });
-
-  await ctx.provider.deleteElement({
+  var deletedIds = await ctx.provider.deleteElementTree({
     domainId: domainId,
     articleId: articleId,
     elementId: id,
   });
-  for (var i = 0; i < children.length; i++) {
-    await ctx.provider.deleteElement({
-      domainId: domainId,
-      articleId: articleId,
-      elementId: children[i].id,
-    });
-  }
-
-  var layout = await ctx.resolve.fetchArticleLayout(domainId, articleId);
-  var order = (layout.order || []).filter(function (oid) {
-    return oid !== id;
-  });
-  var updatedLayout = Object.assign({}, layout, { order: order });
-  if (updatedLayout.grid && updatedLayout.grid.elements) {
-    var gridElements = Object.assign({}, updatedLayout.grid.elements);
-    delete gridElements[id];
-    updatedLayout.grid = Object.assign({}, updatedLayout.grid, {
-      elements: gridElements,
-    });
-  }
-  await ctx.resolve.updateLayout(domainId, articleId, updatedLayout);
-
-  return { id: id };
+  return { id: id, deletedIds: deletedIds };
 }
 
 async function element_move(args, ctx) {

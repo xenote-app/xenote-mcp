@@ -6,6 +6,7 @@ var { isInitializeRequest } = require("@modelcontextprotocol/sdk/types.js");
 var { httpsCallable } = require("firebase/functions");
 var { createMCPServer } = require("./mcp-server");
 var { createSessionApp, sharedFunctions } = require("./db");
+var { PUBLIC_BASE_URL } = require("./config");
 
 // In-memory: sessionId → { transport, server, cleanup }
 var sessions = {};
@@ -13,8 +14,25 @@ var sessions = {};
 // Token → customToken cache (50 min TTL, custom tokens expire at 60 min)
 var tokenCache = {};
 var TOKEN_CACHE_TTL = 50 * 60 * 1000;
+var TOKEN_CACHE_MAX = 1000;
+var SESSION_IDLE_TTL = 2 * 60 * 60 * 1000;
+
+function purgeTokenCache() {
+  var now = Date.now();
+  Object.keys(tokenCache).forEach(function (token) {
+    if (now - tokenCache[token].ts >= TOKEN_CACHE_TTL) delete tokenCache[token];
+  });
+  var keys = Object.keys(tokenCache);
+  if (keys.length > TOKEN_CACHE_MAX) {
+    keys.sort(function (a, b) { return tokenCache[a].ts - tokenCache[b].ts; });
+    keys.slice(0, keys.length - TOKEN_CACHE_MAX).forEach(function (token) {
+      delete tokenCache[token];
+    });
+  }
+}
 
 async function resolveToken(token) {
+  purgeTokenCache();
   var cached = tokenCache[token];
   if (cached && Date.now() - cached.ts < TOKEN_CACHE_TTL) {
     return { customToken: cached.customToken, user: cached.user };
@@ -28,8 +46,26 @@ async function resolveToken(token) {
   var customToken = result.data.customToken;
   var user = { email: result.data.email || null, name: result.data.name || null };
   tokenCache[token] = { customToken: customToken, user: user, ts: Date.now() };
+  purgeTokenCache();
   return { customToken: customToken, user: user };
 }
+
+function closeSession(sid) {
+  var session = sessions[sid];
+  if (!session) return;
+  if (session.clearPresence) session.clearPresence().catch(function () {});
+  session.cleanup().catch(function () {});
+  delete sessions[sid];
+}
+
+var sessionSweeper = setInterval(function () {
+  var now = Date.now();
+  Object.keys(sessions).forEach(function (sid) {
+    if (now - sessions[sid].lastSeen > SESSION_IDLE_TTL) closeSession(sid);
+  });
+  purgeTokenCache();
+}, 10 * 60 * 1000);
+sessionSweeper.unref();
 
 function extractToken(req) {
   var auth = req.headers["authorization"];
@@ -40,6 +76,7 @@ function extractToken(req) {
 }
 
 function getBaseUrl(req) {
+  if (PUBLIC_BASE_URL) return PUBLIC_BASE_URL.replace(/\/$/, "");
   var host = req.get("host");
   var proto = host.indexOf("localhost") === 0 ? "http" : "https";
   return proto + "://" + host;
@@ -71,6 +108,11 @@ function register(app) {
     // Existing session — refresh auth if needed, then forward to transport
     if (sessionId && sessions[sessionId]) {
       var session = sessions[sessionId];
+      if (session.token !== token) {
+        res.status(403).json({ error: "Session does not belong to this token" });
+        return;
+      }
+      session.lastSeen = Date.now();
       if (Date.now() - session.authTs > TOKEN_CACHE_TTL) {
         delete tokenCache[session.token];
         resolveToken(session.token)
@@ -139,19 +181,14 @@ function register(app) {
             token: token,
             refresh: sessionApp.refresh,
             authTs: Date.now(),
+            lastSeen: Date.now(),
           };
         },
       });
 
       transport.onclose = function () {
         var sid = transport.sessionId;
-        if (sid && sessions[sid]) {
-          if (sessions[sid].clearPresence) {
-            sessions[sid].clearPresence().catch(function () {});
-          }
-          sessions[sid].cleanup();
-          delete sessions[sid];
-        }
+        if (sid) closeSession(sid);
       };
 
       var mcp = createMCPServer({
@@ -192,6 +229,11 @@ function register(app) {
     }
     var sessionId = req.headers["mcp-session-id"];
     if (sessionId && sessions[sessionId]) {
+      if (sessions[sessionId].token !== token) {
+        res.status(403).json({ error: "Session does not belong to this token" });
+        return;
+      }
+      sessions[sessionId].lastSeen = Date.now();
       sessions[sessionId].transport.handleRequest(req, res);
     } else {
       res.status(404).json({
@@ -210,6 +252,11 @@ function register(app) {
     }
     var sessionId = req.headers["mcp-session-id"];
     if (sessionId && sessions[sessionId]) {
+      if (sessions[sessionId].token !== token) {
+        res.status(403).json({ error: "Session does not belong to this token" });
+        return;
+      }
+      sessions[sessionId].lastSeen = Date.now();
       sessions[sessionId].transport.handleRequest(req, res);
     } else {
       res.status(404).json({

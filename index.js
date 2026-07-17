@@ -1,6 +1,6 @@
 var express = require("express");
 var cors = require("cors");
-var { PORT } = require("./config");
+var { PORT, CORS_ORIGINS } = require("./config");
 var oauth = require("./oauth");
 var mcpRoutes = require("./mcp-routes");
 
@@ -8,7 +8,12 @@ var app = express();
 app.set("trust proxy", true);
 app.use(
   cors({
-    origin: true,
+    origin: function (origin, callback) {
+      // Non-browser MCP clients do not send Origin and should remain usable.
+      if (!origin || CORS_ORIGINS.indexOf(origin) !== -1)
+        return callback(null, true);
+      return callback(new Error("Origin is not allowed by CORS"));
+    },
     credentials: true,
     exposedHeaders: ["MCP-Session-Id"],
     allowedHeaders: ["Content-Type", "Authorization", "MCP-Session-Id"],

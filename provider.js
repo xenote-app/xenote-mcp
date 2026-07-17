@@ -17,6 +17,7 @@ var {
   addDoc,
   updateDoc,
   deleteDoc,
+  runTransaction,
   deleteField,
   onSnapshot,
   serverTimestamp,
@@ -176,6 +177,52 @@ function createProvider(db, storage) {
         elementId,
       ),
     );
+  }
+
+  // Delete an element tree and remove every deleted ID from the article layout
+  // in one transaction. This prevents a partially deleted code container (or a
+  // stale layout reference) when a request fails or concurrent edits occur.
+  async function deleteElementTree({ domainId, articleId, elementId }) {
+    var articleRef = doc(db, "domains", domainId, "articles", articleId);
+    var elementsRef = collection(articleRef, "elements");
+
+    return runTransaction(db, async function (transaction) {
+      var articleSnap = await transaction.get(articleRef);
+      if (!articleSnap.exists()) throw new Error("Article not found");
+      var elementSnap = await transaction.get(doc(elementsRef, elementId));
+      if (!elementSnap.exists()) throw new Error("Element not found: " + elementId);
+      var elementsSnap = await transaction.get(elementsRef);
+      var all = elementsSnap.docs.map(function (d) {
+        return { id: d.id, data: d.data() };
+      });
+      var deleted = {};
+      deleted[elementId] = true;
+      var changed = true;
+      while (changed) {
+        changed = false;
+        all.forEach(function (element) {
+          if (element.data.parentId && deleted[element.data.parentId] && !deleted[element.id]) {
+            deleted[element.id] = true;
+            changed = true;
+          }
+        });
+      }
+      all.forEach(function (element) {
+        if (deleted[element.id]) transaction.delete(doc(elementsRef, element.id));
+      });
+
+      var layout = articleSnap.data().layout || { order: [], type: "scroll" };
+      var updatedLayout = Object.assign({}, layout, {
+        order: (layout.order || []).filter(function (id) { return !deleted[id]; }),
+      });
+      if (layout.grid && layout.grid.elements) {
+        var gridElements = Object.assign({}, layout.grid.elements);
+        Object.keys(deleted).forEach(function (id) { delete gridElements[id]; });
+        updatedLayout.grid = Object.assign({}, layout.grid, { elements: gridElements });
+      }
+      transaction.update(articleRef, { layout: updatedLayout });
+      return Object.keys(deleted);
+    });
   }
 
   // ── Versions ───────────────────────────────────────────────────────────
@@ -358,6 +405,7 @@ function createProvider(db, storage) {
     createElement: createElement,
     updateElement: _updateElement,
     deleteElement: _deleteElement,
+    deleteElementTree: deleteElementTree,
     fetchVersions: fetchVersions,
     fetchVersion: fetchVersion,
     fetchVersionElements: fetchVersionElements,
