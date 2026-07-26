@@ -66,6 +66,7 @@ function createMCPServer(sessionCtx) {
         "Read the relevant guide and every tool description before acting. Skipping guides is the easiest way to waste tokens and frustrate users.\n\n" +
         "Xenote is a platform for interactive articles, built for AI co-authoring. All changes are live — edits appear instantly in the user's browser.\n\n" +
         "Workspace → Folders → Articles → Elements.\n\n" +
+        "Workspace updates require the workspace path; never assume a default workspace.\n\n" +
         "Elements: text (HTML prose), code (file containers), web-runner (React in browser), box-runner (shell commands), kernel-runner (Python/Jupyter), images, iframe, excalidraw.\n\n" +
         "Text for prose, runners for interactive content. Code elements hold files; runners execute them.\n\n" +
         "Page width: normal is for prose-led reading. Set article_update({ pageWidth: 'wide' }) for experience-led articles with web runners, dashboards, maps, diagrams, tables, iframes, side-by-side content, or grid layouts. When in doubt, choose wide if the article's main value is visual or interactive.\n\n" +

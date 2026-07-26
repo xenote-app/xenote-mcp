@@ -23,7 +23,7 @@ Web runner renders React components in an iframe. No backend needed.
 - Extension required on all imports: import X from './utils.js'
 - React is auto-available — do NOT import React
 - react (for hooks) and react-dom are built-in — do NOT add to importMap
-- CSS must be imported in the entry file: `import './styles.css'` — silent failure if omitted
+- CSS is loadable: `import './styles.css'` from any module
 - Cannot use .html files — web-runner is React-only
 
 ## Import Map

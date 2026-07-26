@@ -312,9 +312,42 @@ function createProvider(db, storage) {
 
   // ── Presence ───────────────────────────────────────────────────────────
 
+  var ATTACH_LEASE_MS = 90 * 1000;
+
+  function hasActiveAttachment(presence) {
+    if (!presence || !presence.attachedTabId || !presence.attachedLastSeen) {
+      return false;
+    }
+    return Date.now() - presence.attachedLastSeen.toMillis() < ATTACH_LEASE_MS;
+  }
+
   async function getPresence(uid) {
     var snap = await getDoc(doc(db, "mcpPresence", uid));
     return snap.exists() ? snap.data() : null;
+  }
+
+  async function getActivePresence(uid) {
+    var ref = doc(db, "mcpPresence", uid);
+    var snap = await getDoc(ref);
+    var presence = snap.exists() ? snap.data() : null;
+    if (hasActiveAttachment(presence)) return presence;
+
+    // A lease can expire when a tab crashes and cannot run its pagehide
+    // cleanup. Clear only if it is still expired when the transaction commits,
+    // so a newly attached tab cannot be detached by an older request.
+    if (presence && presence.attachedTabId) {
+      await runTransaction(db, async function (transaction) {
+        var current = await transaction.get(ref);
+        var data = current.exists() ? current.data() : null;
+        if (data && data.attachedTabId && !hasActiveAttachment(data)) {
+          transaction.update(ref, {
+            attachedTabId: deleteField(),
+            attachedLastSeen: deleteField(),
+          });
+        }
+      });
+    }
+    return null;
   }
   async function setPresence(uid, data) {
     var presenceData = {
@@ -413,6 +446,7 @@ function createProvider(db, storage) {
     fetchUserInfo: fetchUserInfo,
     fetchUserDomains: fetchUserDomains,
     getPresence: getPresence,
+    getActivePresence: getActivePresence,
     setPresence: setPresence,
     logEvent: logEvent,
     clearPresence: clearPresence,

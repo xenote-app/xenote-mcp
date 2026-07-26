@@ -15,7 +15,8 @@ var sessions = {};
 var tokenCache = {};
 var TOKEN_CACHE_TTL = 50 * 60 * 1000;
 var TOKEN_CACHE_MAX = 1000;
-var SESSION_IDLE_TTL = 2 * 60 * 60 * 1000;
+// Idle MCP sessions do not retain account presence or a browser attachment.
+var SESSION_IDLE_TTL = 15 * 60 * 1000;
 
 function purgeTokenCache() {
   var now = Date.now();
@@ -64,7 +65,7 @@ var sessionSweeper = setInterval(function () {
     if (now - sessions[sid].lastSeen > SESSION_IDLE_TTL) closeSession(sid);
   });
   purgeTokenCache();
-}, 10 * 60 * 1000);
+}, 60 * 1000);
 sessionSweeper.unref();
 
 function extractToken(req) {

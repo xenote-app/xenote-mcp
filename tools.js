@@ -396,7 +396,7 @@ var tools = [
   {
     name: "workspace_update",
     description:
-      "Update workspace title, description, or theme. Theme is workspace-level only — applies to all articles.",
+      "Update a workspace's title, description, or theme. path must be the workspace path. Theme applies to all its articles.",
     annotations: {
       title: "Update Workspace",
       destructiveHint: false,
@@ -406,7 +406,10 @@ var tools = [
     inputSchema: {
       type: "object",
       properties: {
-        articlePath: ARTICLE_PATH_PROP.articlePath,
+        path: {
+          type: "string",
+          description: "Workspace path, e.g. '/my-workspace' (not an article or subfolder path)",
+        },
         title: { type: "string", description: "Workspace title" },
         description: { type: "string", description: "Workspace description" },
         theme: {
@@ -431,7 +434,7 @@ var tools = [
           },
         },
       },
-      required: [],
+      required: ["path"],
     },
   },
   {

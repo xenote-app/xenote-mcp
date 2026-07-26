@@ -53,6 +53,16 @@ function expandTypographyPreset(presetId) {
   return null;
 }
 
+async function browserAttachmentStatus(ctx) {
+  var attached = !!(await ctx.provider.getActivePresence(ctx.uid));
+  return {
+    attached: attached,
+    message: attached
+      ? "An attached browser will receive this file update."
+      : "No browser is attached; this file update was saved but was not delivered to a browser.",
+  };
+}
+
 // ── Read-only Tools ──────────────────────────────────────────────────────────
 
 async function get_guide_handler(args) {
@@ -757,7 +767,6 @@ async function element_create(args, ctx) {
   var tips = {
     "web-runner":
       "Rules: Don't import React (auto-available). Extension required on all imports: './file.js'. " +
-      "CSS must be imported in entry file: import './styles.css'. " +
       "Use isChromeless: true + autoHeight: true for embedded feel. " +
       "import '/core/style/base.css' for theming and dark mode. " +
       "get_guide('frontend') covers importMap, cross-article imports, Gen AI API, and debug loop.",
@@ -988,6 +997,7 @@ async function element_update(args, ctx) {
 
   var updateResult = { id: id, appliedData: data };
   if (el.type === "file" && data.content !== undefined) {
+    updateResult.browser = await browserAttachmentStatus(ctx);
     var updatedLineCount = data.content.split("\n").length;
     if (updatedLineCount > 150) {
       updateResult.warning =
@@ -1068,7 +1078,11 @@ async function element_patch(args, ctx) {
       })
       .catch(function () {});
 
-  return { id: id, edits: edits };
+  var patchResult = { id: id, edits: edits };
+  if (el.type === "file") {
+    patchResult.browser = await browserAttachmentStatus(ctx);
+  }
+  return patchResult;
 }
 
 async function element_delete(args, ctx) {
@@ -1218,21 +1232,30 @@ async function article_update(args, ctx) {
 }
 
 async function workspace_update(args, ctx) {
-  var domainId;
-  if (args.articlePath) {
-    var pathData = await ctx.resolve.resolvePath(args.articlePath);
-    domainId = pathData.domainId;
-  } else {
-    domainId = ctx.uid;
+  if (!args.path) throw new Error("path is required for workspace_update");
+  var pathData = await ctx.resolve.resolvePath(args.path);
+  var domainId = pathData.domainId;
+  if (pathData.type !== "folder" || pathData.folderId !== domainId) {
+    throw new Error(
+      "path must be a workspace path, not an article or subfolder: " + args.path,
+    );
   }
+  var domain = await ctx.provider.fetchDomain(domainId);
+  if (!domain) throw new Error("Workspace not found: " + args.path);
 
   var update = {};
-  if (args.title !== undefined) update.title = args.title;
-  if (args.description !== undefined) update.description = args.description;
+  var previous = {};
+  if (args.title !== undefined) {
+    update.title = args.title;
+    previous.title = domain.title || null;
+  }
+  if (args.description !== undefined) {
+    update.description = args.description;
+    previous.description = domain.description || null;
+  }
 
   if (args.theme !== undefined) {
-    var domain = await ctx.provider.fetchDomain(domainId);
-    var currentTheme = (domain && domain.theme) || {};
+    var currentTheme = domain.theme || {};
     var themeUpdate = {};
 
     if (args.theme.coverPageLayout !== undefined)
@@ -1250,6 +1273,7 @@ async function workspace_update(args, ctx) {
     }
 
     update.theme = Object.assign({}, currentTheme, themeUpdate);
+    previous.theme = currentTheme;
   }
 
   if (Object.keys(update).length === 0)
@@ -1260,7 +1284,7 @@ async function workspace_update(args, ctx) {
     data: update,
   });
 
-  return { applied: update };
+  return { workspace: args.path, previous: previous, applied: update };
 }
 
 // ── Version Handler (via Cloud Functions) ────────────────────────────────────
@@ -2090,8 +2114,8 @@ async function element_run(args, ctx) {
   if (!elementId) throw new Error("id is required");
 
   // Check if a browser tab is attached
-  var presenceSnap = await ctx.provider.getPresence(ctx.uid);
-  if (!presenceSnap || !presenceSnap.attachedTabId) {
+  var presenceSnap = await ctx.provider.getActivePresence(ctx.uid);
+  if (!presenceSnap) {
     throw new Error(
       "No browser tab is attached. Open Xenote in a browser and click Attach on the presence indicator.",
     );
