@@ -32,17 +32,19 @@ function purgeTokenCache() {
   }
 }
 
-async function resolveToken(token) {
+async function resolveToken(token, clientName) {
   purgeTokenCache();
   var cached = tokenCache[token];
   if (cached && Date.now() - cached.ts < TOKEN_CACHE_TTL) {
     return { customToken: cached.customToken, user: cached.user };
   }
 
+  // clientName lets the token record show which app is holding it, so a user
+  // reviewing their connections can tell them apart.
   var result = await httpsCallable(
     sharedFunctions,
     "authenticateMCPTokenCall",
-  )({ token: token });
+  )({ token: token, clientName: clientName || null });
 
   var customToken = result.data.customToken;
   var user = { email: result.data.email || null, name: result.data.name || null };
@@ -83,17 +85,22 @@ function getBaseUrl(req) {
   return proto + "://" + host;
 }
 
-function sendUnauthorized(req, res) {
+// A rejected token must answer 401 with WWW-Authenticate, never 403. Clients
+// re-run the OAuth flow on 401; 403 reads as "authenticated but not allowed",
+// so they stop and ask the user to reconnect by hand — which cannot help when
+// the problem is the credential itself.
+function sendUnauthorized(req, res, errorCode) {
   var baseUrl = getBaseUrl(req);
+  var challenge = "Bearer ";
+  if (errorCode) {
+    challenge += 'error="' + errorCode + '", ';
+  }
+  challenge +=
+    'resource_metadata="' + baseUrl + '/.well-known/oauth-protected-resource"';
   res
     .status(401)
-    .set(
-      "WWW-Authenticate",
-      'Bearer resource_metadata="' +
-        baseUrl +
-        '/.well-known/oauth-protected-resource"',
-    )
-    .json({ error: "Unauthorized" });
+    .set("WWW-Authenticate", challenge)
+    .json({ error: errorCode || "Unauthorized" });
 }
 
 function register(app) {
@@ -126,7 +133,7 @@ function register(app) {
           })
           .catch(function (e) {
             console.log("[POST /mcp] auth refresh failed:", e.message);
-            res.status(403).json({ error: "Auth refresh failed" });
+            sendUnauthorized(req, res, "invalid_token");
           });
       } else {
         session.transport.handleRequest(req, res, req.body);
@@ -152,11 +159,12 @@ function register(app) {
     // New session — initialize
     if (!sessionId && isInitializeRequest(req.body)) {
       var resolved;
+      var clientInfo = (req.body.params && req.body.params.clientInfo) || {};
       try {
-        resolved = await resolveToken(token);
+        resolved = await resolveToken(token, clientInfo.name);
       } catch (e) {
         console.log("[POST /mcp] resolveToken failed:", e.message);
-        res.status(403).json({ error: "Invalid or expired token" });
+        sendUnauthorized(req, res, "invalid_token");
         return;
       }
 

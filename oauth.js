@@ -279,7 +279,7 @@ function register(app) {
     res.redirect(url);
   });
 
-  app.post("/token", function (req, res) {
+  app.post("/token", async function (req, res) {
     var grantType = req.body.grant_type;
     var code = req.body.code;
     var codeVerifier = req.body.code_verifier;
@@ -289,6 +289,22 @@ function register(app) {
       var refreshToken = req.body.refresh_token;
       if (!refreshToken || !refreshToken.startsWith("xnt_")) {
         res.status(400).json({ error: "invalid_grant" });
+        return;
+      }
+      // The token must still exist, not merely look like one. Echoing back
+      // whatever was presented tells a client its stale token is good, so it
+      // keeps using a credential the MCP endpoint rejects and never falls
+      // back to a fresh authorization — an unrecoverable loop for the user.
+      try {
+        await httpsCallable(sharedFunctions, "authenticateMCPTokenCall")({
+          token: refreshToken,
+        });
+      } catch (err) {
+        // invalid_grant is the client's cue to discard it and re-authorize.
+        res.status(400).json({
+          error: "invalid_grant",
+          error_description: "Refresh token is no longer valid. Re-authorize to continue.",
+        });
         return;
       }
       res.json({
