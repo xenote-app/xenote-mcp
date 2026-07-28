@@ -18,10 +18,12 @@ var {
 } = require("firebase/storage");
 var { FIREBASE_CONFIG, IS_EMULATOR, EMULATOR_PORTS } = require("./config");
 
-// Shared unauthenticated app — used only for the initial
-// authenticateMCPTokenCall before we know the user.
+// Shared unauthenticated app — used before we know the user: the initial
+// authenticateMCPTokenCall, and the OAuth client registry, which is public
+// by design (a client_id is an identifier, not a credential).
 var sharedApp = initializeApp(FIREBASE_CONFIG, "shared");
 var sharedFunctions = getFunctions(sharedApp);
+var sharedDb = getFirestore(sharedApp);
 
 if (IS_EMULATOR) {
   connectFunctionsEmulator(
@@ -29,6 +31,7 @@ if (IS_EMULATOR) {
     "localhost",
     EMULATOR_PORTS.functions,
   );
+  connectFirestoreEmulator(sharedDb, "localhost", EMULATOR_PORTS.firestore);
 }
 
 /**
@@ -69,4 +72,4 @@ async function createSessionApp(sessionId, customToken) {
   };
 }
 
-module.exports = { createSessionApp, sharedFunctions };
+module.exports = { createSessionApp, sharedFunctions, sharedDb };
