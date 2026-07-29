@@ -186,29 +186,39 @@ function createProvider(db, storage) {
     var articleRef = doc(db, "domains", domainId, "articles", articleId);
     var elementsRef = collection(articleRef, "elements");
 
+    // The client SDK's Transaction.get() takes a DocumentReference only — it
+    // cannot read a collection (the Admin SDK can, which is an easy trap).
+    // Passing a CollectionReference fails deep in the serializer with
+    // "Cannot read properties of undefined (reading 'path')", so the child
+    // scan happens up front and only the layout read-modify-write stays
+    // transactional. A child created after this read would be orphaned rather
+    // than cascaded, which is the same exposure as any read-then-write.
+    var elementsSnap = await getDocs(elementsRef);
+    var all = elementsSnap.docs.map(function (d) {
+      return { id: d.id, data: d.data() };
+    });
+    var deleted = {};
+    deleted[elementId] = true;
+    var changed = true;
+    while (changed) {
+      changed = false;
+      all.forEach(function (element) {
+        if (element.data.parentId && deleted[element.data.parentId] && !deleted[element.id]) {
+          deleted[element.id] = true;
+          changed = true;
+        }
+      });
+    }
+
     return runTransaction(db, async function (transaction) {
       var articleSnap = await transaction.get(articleRef);
       if (!articleSnap.exists()) throw new Error("Article not found");
       var elementSnap = await transaction.get(doc(elementsRef, elementId));
       if (!elementSnap.exists()) throw new Error("Element not found: " + elementId);
-      var elementsSnap = await transaction.get(elementsRef);
-      var all = elementsSnap.docs.map(function (d) {
-        return { id: d.id, data: d.data() };
-      });
-      var deleted = {};
-      deleted[elementId] = true;
-      var changed = true;
-      while (changed) {
-        changed = false;
-        all.forEach(function (element) {
-          if (element.data.parentId && deleted[element.data.parentId] && !deleted[element.id]) {
-            deleted[element.id] = true;
-            changed = true;
-          }
-        });
-      }
-      all.forEach(function (element) {
-        if (deleted[element.id]) transaction.delete(doc(elementsRef, element.id));
+
+      // All reads must precede all writes inside a transaction.
+      Object.keys(deleted).forEach(function (id) {
+        transaction.delete(doc(elementsRef, id));
       });
 
       var layout = articleSnap.data().layout || { order: [], type: "scroll" };
