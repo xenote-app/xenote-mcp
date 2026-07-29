@@ -158,7 +158,6 @@ async function fetch_handler(args, ctx) {
     title: article ? article.title : null,
     description: article ? article.description : null,
     requiredArticles: article ? article.requiredArticles || [] : [],
-    articleContext: article ? article.articleContext || "" : "",
     layout: {
       type: layout.type || "scroll",
       pageWidth: layout.pageWidth || "normal",
@@ -1163,8 +1162,6 @@ async function article_update(args, ctx) {
   var update = {};
   if (args.title !== undefined) update.title = args.title;
   if (args.description !== undefined) update.description = args.description;
-  if (args.articleContext !== undefined)
-    update.articleContext = args.articleContext;
   if (args.requiredArticles !== undefined) {
     if (!Array.isArray(args.requiredArticles))
       throw new Error("requiredArticles must be an array of article IDs.");

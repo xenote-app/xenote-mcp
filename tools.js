@@ -347,7 +347,7 @@ var tools = [
   {
     name: "article_update",
     description:
-      "Update article title, description, context, settings, layout, page width, or requiredArticles (prerequisites). Page-width rule: use normal for prose-led reading; use wide for articles centered on runners, dashboards, maps, diagrams, tables, iframes, side-by-side content, or grid layouts. Set wide when the main value is visual or interactive. requiredArticles changes take effect immediately — no republish needed. Title changes require republishing to update the published title.",
+      "Update article title, description, settings, layout, page width, or requiredArticles (prerequisites). Page-width rule: use normal for prose-led reading; use wide for articles centered on runners, dashboards, maps, diagrams, tables, iframes, side-by-side content, or grid layouts. Set wide when the main value is visual or interactive. requiredArticles changes take effect immediately — no republish needed. Title changes require republishing to update the published title.",
     annotations: {
       title: "Update Article",
       destructiveHint: false,
@@ -360,10 +360,6 @@ var tools = [
         articlePath: ARTICLE_PATH_PROP.articlePath,
         title: { type: "string", description: "Article title" },
         description: { type: "string", description: "Article description" },
-        articleContext: {
-          type: "string",
-          description: "Agent-facing context notes about this article.",
-        },
         requiredArticles: {
           type: "array",
           items: { type: "string" },
