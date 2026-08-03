@@ -347,7 +347,7 @@ var tools = [
   {
     name: "article_update",
     description:
-      "Update article title, description, settings, layout, page width, or requiredArticles (course prerequisites). Page-width rule: use normal for prose-led reading; use wide for articles centered on runners, dashboards, maps, diagrams, tables, iframes, side-by-side content, or grid layouts. Set wide when the main value is visual or interactive. requiredArticles changes take effect immediately — no republish needed. Title changes require republishing to update the published title.",
+      "Update article title, description, settings, layout, page width, or requiredArticles (course prerequisites). Page-width rule: articles are created wide (visual/interactive content); set normal for prose-led reading. requiredArticles changes take effect immediately — no republish needed. Title changes require republishing to update the published title.",
     annotations: {
       title: "Update Article",
       destructiveHint: false,
@@ -380,7 +380,7 @@ var tools = [
         pageWidth: {
           type: "string",
           enum: ["normal", "wide"],
-          description: "Article page width. normal: prose-led reading. wide: interactive/visual content (web runners, dashboards, maps, diagrams, tables, iframes, side-by-side content, or grid layouts). Prefer wide when the article's main value is visual or interactive.",
+          description: "Article page width. wide (default at creation, ~960px usable): visual/interactive content. normal (~704px, prose capped at 640px): prose-led reading.",
         },
         hideTitle: {
           type: "boolean",
@@ -522,6 +522,12 @@ var tools = [
         },
         description: { type: "string" },
         layoutType: { type: "string", enum: ["scroll", "grid"] },
+        pageWidth: {
+          type: "string",
+          enum: ["normal", "wide"],
+          description:
+            "For createArticle. Default wide (~960px usable); use normal (~704px, prose capped at 640px) for prose-led reading.",
+        },
         articleId: { type: "string" },
         folderId: { type: "string" },
         itemId: { type: "string" },

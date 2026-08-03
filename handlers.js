@@ -1642,6 +1642,8 @@ async function folder_handler(args, ctx) {
         ctx, domainId, parentId, args.title, "article",
       );
     }
+    // Agent-created articles default to wide — they skew visual/interactive.
+    var pageWidth = args.pageWidth || "wide";
     var result = await httpsCallable(
       ctx.functions,
       "createArticleCall",
@@ -1652,9 +1654,11 @@ async function folder_handler(args, ctx) {
       slug: articleSlug,
       description: args.description,
       layoutType: args.layoutType,
+      pageWidth: pageWidth,
       insertAt: args.insertAt,
     });
     var createResult = result.data;
+    createResult.pageWidth = pageWidth;
     var articlePath = args.path.replace(/\/$/, "") + "/" + articleSlug;
     createResult.slug = articleSlug;
     createResult.path = articlePath;

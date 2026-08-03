@@ -26,6 +26,9 @@ Web runner renders React components in an iframe. No backend needed.
 - CSS is loadable: `import './styles.css'` from any module
 - Cannot use .html files — web-runner is React-only
 
+## Working widths (scroll)
+Desktop content width for runners/code/iframes: ~960px on wide pages (the default at creation), ~704px on normal. Prose text is capped at 640px regardless. 32px vertical gap between elements. Mobile is viewport-bound (24px side padding) — design responsively.
+
 ## Import Map
 Add external dependencies the runner doesn't include by default:
 settings.importMap: { "three": "https://esm.sh/three" }
