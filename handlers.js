@@ -451,7 +451,7 @@ async function element_get(args, ctx) {
   var result = {
     id: el.id,
     type: el.type,
-    version: el.version || 0,
+    edits: el.edits || 0,
     parentId: el.parentId || null,
     settings: el.settings || null,
     entries: el.entries || null,
@@ -696,7 +696,7 @@ async function element_create(args, ctx) {
   }
 
   var defaults = DEFAULT_SETTINGS[type] || {};
-  var data = { type: type, version: 0 };
+  var data = { type: type, edits: 0 };
   if (content !== undefined) data.content = content;
   data.settings = Object.assign({}, defaults, settings || {});
   if (type === "web-runner" && settings && settings.importMap) {
@@ -944,17 +944,16 @@ async function element_update(args, ctx) {
     articleId: articleId,
     elementId: id,
   });
-  var version = (el.version || 0) + 1;
+  var elEdits = el.edits || 0;
+  var edits = elEdits + 1;
+  var expectedEdits = args.expectedEdits;
 
-  if (
-    args.expectedVersion !== undefined &&
-    el.version !== args.expectedVersion
-  ) {
+  if (expectedEdits !== undefined && elEdits !== expectedEdits) {
     throw new Error(
-      "VERSION_CONFLICT: Element has been modified (expected v" +
-        args.expectedVersion +
-        ", now v" +
-        el.version +
+      "EDIT_CONFLICT: Element has been modified (expected " +
+        expectedEdits +
+        " edits, now " +
+        elEdits +
         "). Fetch current content and retry.",
     );
   }
@@ -979,7 +978,7 @@ async function element_update(args, ctx) {
     }
   }
 
-  var updateData = { version: version };
+  var updateData = { edits: edits };
   if (data.content !== undefined) updateData.content = data.content;
   if (data.entries !== undefined) updateData.entries = data.entries;
   if (data.settings !== undefined) {
@@ -1008,7 +1007,7 @@ async function element_update(args, ctx) {
         type: "fileChange",
         path: args.articlePath,
         filename: el.settings.filename,
-        version: version,
+        edits: edits,
       })
       .catch(function () {});
 
@@ -1059,17 +1058,16 @@ async function element_patch(args, ctx) {
     elementId: id,
   });
   var originalContent = el.content || "";
-  var version = (el.version || 0) + 1;
+  var elEdits = el.edits || 0;
+  var edits = elEdits + 1;
+  var expectedEdits = args.expectedEdits;
 
-  if (
-    args.expectedVersion !== undefined &&
-    el.version !== args.expectedVersion
-  ) {
+  if (expectedEdits !== undefined && elEdits !== expectedEdits) {
     throw new Error(
-      "VERSION_CONFLICT: Element has been modified (expected v" +
-        args.expectedVersion +
-        ", now v" +
-        el.version +
+      "EDIT_CONFLICT: Element has been modified (expected " +
+        expectedEdits +
+        " edits, now " +
+        elEdits +
         "). Fetch current content and retry.",
     );
   }
@@ -1089,7 +1087,7 @@ async function element_patch(args, ctx) {
     domainId: domainId,
     articleId: articleId,
     elementId: id,
-    data: { content: newContent, version: version },
+    data: { content: newContent, edits: edits },
   });
 
   if (el.type === "file" && el.settings && el.settings.filename)
@@ -1098,7 +1096,7 @@ async function element_patch(args, ctx) {
         type: "fileChange",
         path: args.articlePath,
         filename: el.settings.filename,
-        version: version,
+        edits: edits,
       })
       .catch(function () {});
 
@@ -2030,7 +2028,7 @@ function paginateContent(content, offset, limit) {
 }
 
 function summarizeElement(el, children) {
-  var summary = { id: el.id, type: el.type, version: el.version || 0 };
+  var summary = { id: el.id, type: el.type, edits: el.edits || 0 };
   if (el.parentId) summary.parentId = el.parentId;
 
   switch (el.type) {

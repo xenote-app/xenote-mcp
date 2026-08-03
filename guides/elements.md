@@ -1,6 +1,6 @@
 # Element Types
 
-Every element has: { id, type, settings, version }. Some also have content or entries.
+Every element has: { id, type, settings, edits }. Some also have content or entries. `edits` is the element's save counter — pass it as `expectedEdits` on update/patch for conflict detection. (Not to be confused with article versions, which are publish snapshots.)
 
 ## text
 Rich text as HTML (NOT markdown).

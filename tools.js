@@ -109,7 +109,7 @@ var tools = [
   {
     name: "element_get",
     description:
-      "Get full content, settings, and version of a single element by ID. Use this to read file content that fetch only summarizes. Very large content is truncated with a pagination marker — continue with offset.",
+      "Get full content, settings, and edit count of a single element by ID. Use this to read file content that fetch only summarizes. Very large content is truncated with a pagination marker — continue with offset.",
     annotations: {
       title: "Get Element",
       readOnlyHint: true,
@@ -251,9 +251,10 @@ var tools = [
             },
           },
         },
-        expectedVersion: {
+        expectedEdits: {
           type: "number",
-          description: "Expected version for conflict detection",
+          description:
+            "Expected edit count for conflict detection (from the element's `edits`)",
         },
       },
       required: ["articlePath", "id"],
@@ -290,9 +291,10 @@ var tools = [
             required: ["old_string", "new_string"],
           },
         },
-        expectedVersion: {
+        expectedEdits: {
           type: "number",
-          description: "Expected version for conflict detection",
+          description:
+            "Expected edit count for conflict detection (from the element's `edits`)",
         },
       },
       required: ["articlePath", "id", "edits"],
