@@ -1643,7 +1643,9 @@ async function folder_handler(args, ctx) {
       );
     }
     // Agent-created articles default to wide — they skew visual/interactive.
-    var pageWidth = args.pageWidth || "wide";
+    // Scroll-only: grid articles derive width from their columns.
+    var pageWidth =
+      args.layoutType === "grid" ? undefined : args.pageWidth || "wide";
     var result = await httpsCallable(
       ctx.functions,
       "createArticleCall",
@@ -1658,7 +1660,7 @@ async function folder_handler(args, ctx) {
       insertAt: args.insertAt,
     });
     var createResult = result.data;
-    createResult.pageWidth = pageWidth;
+    if (pageWidth) createResult.pageWidth = pageWidth;
     var articlePath = args.path.replace(/\/$/, "") + "/" + articleSlug;
     createResult.slug = articleSlug;
     createResult.path = articlePath;

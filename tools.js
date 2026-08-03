@@ -380,7 +380,7 @@ var tools = [
         pageWidth: {
           type: "string",
           enum: ["normal", "wide"],
-          description: "Article page width. wide (default at creation, ~960px usable): visual/interactive content. normal (~704px, prose capped at 640px): prose-led reading.",
+          description: "Article page width, scroll layout only. wide (~960px usable): visual/interactive content. normal (~704px): prose-led reading. Prose text caps at 640px on both.",
         },
         hideTitle: {
           type: "boolean",
@@ -526,7 +526,7 @@ var tools = [
           type: "string",
           enum: ["normal", "wide"],
           description:
-            "For createArticle. Default wide (~960px usable); use normal (~704px, prose capped at 640px) for prose-led reading.",
+            "For createArticle, scroll layout only. Default wide (~960px usable); use normal (~704px) for prose-led reading. Prose text caps at 640px on both.",
         },
         articleId: { type: "string" },
         folderId: { type: "string" },
