@@ -797,6 +797,9 @@ async function element_create(args, ctx) {
       "get_guide('code-and-files') covers editing patterns and element_patch usage.",
   };
   if (tips[type]) createResult.tip = tips[type];
+  if (type === "text" && data.content && data.content.indexOf("<table") !== -1) {
+    createResult.tip = TEXT_TABLE_TIP;
+  }
   if (type === "code" && !data.settings.title) {
     createResult.recommendation =
       "Add a descriptive settings.title so readers know what this code builds (for example, 'Sorting Visualizer' or '3D Lattice Model').";
@@ -804,6 +807,11 @@ async function element_create(args, ctx) {
 
   return createResult;
 }
+
+// Fires on contact with tables — the two rules agents most often miss.
+var TEXT_TABLE_TIP =
+  "Tables: wrap every cell's content in <p> (no <thead>/<tbody>; first row uses <th>). " +
+  "Size a column with data-colwidth (px) on its cells. get_guide('elements') has the full shape.";
 
 function resolveBatchRef(value, created) {
   if (typeof value !== "string" || value.charAt(0) !== "@") return value;
@@ -1005,6 +1013,13 @@ async function element_update(args, ctx) {
       .catch(function () {});
 
   var updateResult = { id: id, appliedData: data };
+  if (
+    el.type === "text" &&
+    data.content &&
+    data.content.indexOf("<table") !== -1
+  ) {
+    updateResult.tip = TEXT_TABLE_TIP;
+  }
   if (el.type === "file" && data.content !== undefined) {
     updateResult.browser = await browserAttachmentStatus(ctx);
     var updatedLineCount = data.content.split("\n").length;

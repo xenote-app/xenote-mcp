@@ -21,7 +21,8 @@ Tables live inside text elements as HTML. Shape:
 ```
 - Every cell's inner content MUST be wrapped in `<p>` (cell content is `block+`).
 - First row uses `<th>` for headers. Do NOT emit `<thead>` or `<tbody>` — the schema is flat.
-- Cell attributes: `colspan`, `rowspan`, `colwidth` (resizing-managed; safe to omit).
+- Tables span the content width with equal columns by default. To size a column, set `data-colwidth` (px) on its cells — e.g. `<th data-colwidth="200">` — leaving other columns to share the rest. Too-wide tables scroll horizontally.
+- Other cell attributes: `colspan`, `rowspan`.
 - No `align` attribute on cells. Alignment goes on the inner `<p>` via `class="text-center"` or `class="text-right"`.
 
 ## code
