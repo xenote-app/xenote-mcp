@@ -7,7 +7,8 @@ Create this FIRST before adding any files.
 - settings.layout: "" — inline editor always visible. Use only when the code itself is part of the contextual reading (e.g. the prose teaches by walking through this code line by line). This is the exception, not the norm.
 - Not a file-size decision.
 - settings.isReadOnly: false (editable playground) | true (read-only) | "hidden" (not shown on the published page — use when readers don't need to see the code, e.g. app/experience pages)
-- Other settings: autoHeight?, hasLineNumbers?, lineWrapping?, title? (group name)
+- settings.title: recommended — short label for the file group, e.g. "Server", "UI components"
+- Other settings: autoHeight?, hasLineNumbers?, lineWrapping?
 
 A code element starts empty — add file elements inside it.
 
@@ -24,7 +25,7 @@ A code element starts empty — add file elements inside it.
 - Deleting a code element also deletes all its child files
 
 ## Step-by-Step Pattern
-1. element_create({ type: "code", settings: { layout: "collapsed" } })
+1. element_create({ type: "code", settings: { layout: "collapsed", title: "Demo app" } })
    → returns { id: "abc" }
 2. element_create({ type: "file", parentId: "abc", content: "...", settings: { filename: "app.jsx" } })
 3. element_create({ type: "file", parentId: "abc", content: "...", settings: { filename: "styles.css" } })
@@ -34,7 +35,7 @@ A code element starts empty — add file elements inside it.
 Build the whole scaffold in one call. Use '@<index>' to reference earlier batch items:
 ```
 elements_create({ articlePath, elements: [
-  { type: "code", settings: { layout: "collapsed" } },             // @0
+  { type: "code", settings: { layout: "collapsed", title: "Demo app" } },  // @0
   { type: "file", parentId: "@0", content: "...", settings: { filename: "app.jsx" } },
   { type: "file", parentId: "@0", content: "...", settings: { filename: "styles.css" } },
   { type: "web-runner", settings: { target: "app.jsx" } },

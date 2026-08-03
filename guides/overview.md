@@ -48,7 +48,7 @@ Articles have a **live working copy** (what you edit) and frozen **version snaps
 - public_fetch({ path: "/workspace-slug/article-slug" }) — fetches published article content
 
 ## Course Progression
-Articles can require other articles to be completed before they unlock. Use `requiredArticles` in `article_update` to set prerequisites, and `markComplete` from `/core/completion/interface.js` in runners to mark articles done. See /references/mark-complete for details.
+Articles can be locked until prerequisite articles are completed. Set `requiredArticles` (article IDs) via `article_update`. An article is completed when JS inside it sets the complete flag — used to verify knowledge before advancing (quizzes, tests). public_fetch /core/completion for how.
 
 ## Reading Content
 - fetch returns **summaries** for file elements (filename + lineCount only)

@@ -52,7 +52,7 @@ Cross-article imports don't require version numbers during development. The Stan
 - Result: developers never think about versions during development, but published code is fully reproducible and never breaks
 
 ## Example (Multi-File — always follow this pattern)
-element_create({ type: "code", settings: { layout: "collapsed" } })
+element_create({ type: "code", settings: { layout: "collapsed", title: "Chart demo" } })
 → { id: "abc" }
 element_create({ type: "file", parentId: "abc", content: "import './styles.css';\nimport Chart from './Chart.jsx';\nimport { DATA } from './data.js';\nexport default function App() {\n  return <div className=\"app\"><Chart data={DATA} /></div>;\n}", settings: { filename: "app.jsx" } })
 element_create({ type: "file", parentId: "abc", content: ".app { padding: 20px; }\n.chart { border: 1px solid var(--doc-border); }", settings: { filename: "styles.css" } })
@@ -74,7 +74,7 @@ Web runners can use the reader's AI credits to call supported LLMs — no API ke
 The user is prompted before credits are spent. Models change over time, so always use fetchModels() to get the current list rather than hardcoding model IDs. See /references/genai for a working example.
 
 ## Completion API
-Web runners can mark articles as complete via /core/completion/interface.js. Two functions: markComplete(true/false) and fetchIsComplete(). Useful for courses and sequential content where articles unlock as readers progress. See /references/mark-complete for a working example.
+Web runners can set the current article's complete flag — unlocks articles that require it via `requiredArticles`. Use to verify knowledge before advancing (quizzes, tests). public_fetch /core/completion for how.
 
 ## Debug Loop
 Ask the user to attach a browser tab (presence indicator). Then:

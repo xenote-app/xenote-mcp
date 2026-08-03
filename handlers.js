@@ -150,14 +150,13 @@ async function fetch_handler(args, ctx) {
     article && article.layout ? article.layout : { order: [], type: "scroll" };
   var list = buildElementSummaries(elements, layout.order || []);
 
-  return {
+  var result = {
     type: "article",
     id: articleId,
     path: path,
     editorUrl: "https://www.xenote.com/workspaces" + path,
     title: article ? article.title : null,
     description: article ? article.description : null,
-    requiredArticles: article ? article.requiredArticles || [] : [],
     layout: {
       type: layout.type || "scroll",
       pageWidth: layout.pageWidth || "normal",
@@ -170,6 +169,10 @@ async function fetch_handler(args, ctx) {
     },
     elements: list,
   };
+  // Course-progression prerequisites — niche feature, only surfaced when set
+  if (article && article.requiredArticles && article.requiredArticles.length > 0)
+    result.requiredArticles = article.requiredArticles;
+  return result;
 }
 
 // Version snapshots are immutable — cache parsed elements.json across
@@ -491,15 +494,18 @@ async function fetchFolderContent(ctx, domainId, folderId, path) {
     };
   }
   for (var j = 0; j < childArticles.length; j++) {
-    children[childArticles[j].id] = {
+    var childArticle = {
       type: "article",
       id: childArticles[j].id,
       slug: childArticles[j].slug,
       title: childArticles[j].title || null,
       description: childArticles[j].description || null,
       isPublished: !!childArticles[j].publishedVersionId,
-      requiredArticles: childArticles[j].requiredArticles || [],
     };
+    // Course-progression prerequisites — niche feature, only surfaced when set
+    if (childArticles[j].requiredArticles && childArticles[j].requiredArticles.length > 0)
+      childArticle.requiredArticles = childArticles[j].requiredArticles;
+    children[childArticles[j].id] = childArticle;
   }
 
   var layoutList = folder && folder.layout && folder.layout.list;

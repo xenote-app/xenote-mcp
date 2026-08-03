@@ -159,7 +159,7 @@ var tools = [
           description:
             "Element type. Per-type requirements:\n" +
             "text: content is HTML (<p>, <h2>, <strong>, <math>, etc), not markdown. Don't add a title — the article title is already displayed. settings: { alignment?, columns?, css?, spellCheck? }\n" +
-            'code: get_guide("code-and-files") before use. container for file children — don\'t put code in content. settings: { layout: "collapsed" (default — file list, expands on click) | "" (only when the code is part of the contextual reading), isReadOnly: false (editable) | true (read-only) | "hidden" (invisible to readers — use when the page is an app/experience and the code is just plumbing) }\n' +
+            'code: get_guide("code-and-files") before use. container for file children — don\'t put code in content. settings: { layout: "collapsed" (default — file list, expands on click) | "" (only when the code is part of the contextual reading), isReadOnly: false (editable) | true (read-only) | "hidden" (invisible to readers — use when the page is an app/experience and the code is just plumbing), title? (recommended group label) }\n' +
             'file: get_guide("code-and-files") before use. requires parentId (code element ID) and settings: { filename (required — unique across the whole article, not per container; imports resolve by bare filename), isPulled? }\n' +
             'web-runner: get_guide("frontend") before use. create code+files first. React 19 is in importMap by default — additional imports are merged, not replaced. settings: { target (required, .jsx filename), importMap?, isChromeless?, layout?, height?, autoHeight? }\n' +
             'box-runner: get_guide("backend") before use. settings: { command (required, e.g. "node app.js") }\n' +
@@ -347,7 +347,7 @@ var tools = [
   {
     name: "article_update",
     description:
-      "Update article title, description, settings, layout, page width, or requiredArticles (prerequisites). Page-width rule: use normal for prose-led reading; use wide for articles centered on runners, dashboards, maps, diagrams, tables, iframes, side-by-side content, or grid layouts. Set wide when the main value is visual or interactive. requiredArticles changes take effect immediately — no republish needed. Title changes require republishing to update the published title.",
+      "Update article title, description, settings, layout, page width, or requiredArticles (course prerequisites). Page-width rule: use normal for prose-led reading; use wide for articles centered on runners, dashboards, maps, diagrams, tables, iframes, side-by-side content, or grid layouts. Set wide when the main value is visual or interactive. requiredArticles changes take effect immediately — no republish needed. Title changes require republishing to update the published title.",
     annotations: {
       title: "Update Article",
       destructiveHint: false,
@@ -364,7 +364,7 @@ var tools = [
           type: "array",
           items: { type: "string" },
           description:
-            "Array of article IDs that must be completed before this article is unlocked. Pass [] to clear.",
+            "Article IDs that must be completed before this article unlocks. Completion is set by JS in the prerequisite (quiz, test — see /core/completion). Pass [] to clear.",
         },
         settings: { type: "object", description: "Article settings" },
         layoutType: {
