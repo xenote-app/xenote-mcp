@@ -158,7 +158,7 @@ var tools = [
           ],
           description:
             "Element type. Per-type requirements:\n" +
-            "text: content is HTML (<p>, <h2>, <strong>, <math>, etc), not markdown. Don't add a title — the article title is already displayed. settings: { alignment?, columns?, css?, spellCheck? }\n" +
+            'text: content is HTML (<p>, <h2>, <strong>, <table>, <math>, etc), not markdown. Don\'t add a title — the article title is already displayed. settings: { alignment?, columns?, css?, spellCheck? }\n' +
             'code: get_guide("code-and-files") before use. container for file children — don\'t put code in content. settings: { layout: "collapsed" (default — file list, expands on click) | "" (only when the code is part of the contextual reading), isReadOnly: false (editable) | true (read-only) | "hidden" (invisible to readers — use when the page is an app/experience and the code is just plumbing), title? (recommended group label) }\n' +
             'file: get_guide("code-and-files") before use. requires parentId (code element ID) and settings: { filename (required — unique across the whole article, not per container; imports resolve by bare filename), isPulled? }\n' +
             'web-runner: get_guide("frontend") before use. create code+files first. React 19 is in importMap by default — additional imports are merged, not replaced. settings: { target (required, .jsx filename), importMap?, isChromeless?, layout?, height?, autoHeight? }\n' +
@@ -366,6 +366,11 @@ var tools = [
           description:
             "Article IDs that must be completed before this article unlocks. Completion is set by JS in the prerequisite (quiz, test — see /core/completion). Pass [] to clear.",
         },
+        isUnlisted: {
+          type: "boolean",
+          description:
+            "Hide from the published folder listing; still reachable by URL and imports",
+        },
         settings: { type: "object", description: "Article settings" },
         layoutType: {
           type: "string",
@@ -533,7 +538,7 @@ var tools = [
         },
         showDesc: { type: "boolean", description: "Show article descriptions in section" },
         showThumb: { type: "boolean", description: "Show article thumbnails in section" },
-        isHidden: { type: "boolean", description: "Hide section on public page" },
+        isUnlisted: { type: "boolean", description: "Hide section on public page" },
         insertAt: { type: "number", description: "For addSection: position index to insert at" },
         afterItemId: {
           type: "string",

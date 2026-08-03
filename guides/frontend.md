@@ -43,6 +43,7 @@ import { Chart } from '/workspace-slug/article-slug/charts.js';
 - Pin a specific version: '/workspace-slug/article-slug@1.0.0/file.js'
 - To discover importable articles: fetch({ path: "/my-workspace" }) — look for isPublished: true
 - To check a file's exports before importing: public_fetch({ path: "/workspace/article", filename: "file.js" }) returns its import/export lines
+- Shared code across articles: put it in one dedicated article, published and unlisted (article_update { isUnlisted: true }) — importable but off the folder listing. Don't import from reader-facing articles; their republishes then double as library releases.
 
 ## Dependency Version Map (Standard Runtime)
 Cross-article imports don't require version numbers during development. The Standard Runtime automatically resolves unversioned imports to the current published version at runtime.

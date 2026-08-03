@@ -169,9 +169,10 @@ async function fetch_handler(args, ctx) {
     },
     elements: list,
   };
-  // Course-progression prerequisites — niche feature, only surfaced when set
+  // Niche flags — only surfaced when set
   if (article && article.requiredArticles && article.requiredArticles.length > 0)
     result.requiredArticles = article.requiredArticles;
+  if (article && article.isUnlisted) result.isUnlisted = true;
   return result;
 }
 
@@ -502,9 +503,10 @@ async function fetchFolderContent(ctx, domainId, folderId, path) {
       description: childArticles[j].description || null,
       isPublished: !!childArticles[j].publishedVersionId,
     };
-    // Course-progression prerequisites — niche feature, only surfaced when set
+    // Niche flags — only surfaced when set
     if (childArticles[j].requiredArticles && childArticles[j].requiredArticles.length > 0)
       childArticle.requiredArticles = childArticles[j].requiredArticles;
+    if (childArticles[j].isUnlisted) childArticle.isUnlisted = true;
     children[childArticles[j].id] = childArticle;
   }
 
@@ -515,7 +517,9 @@ async function fetchFolderContent(ctx, domainId, folderId, path) {
     for (var k = 0; k < layoutList.length; k++) {
       var item = layoutList[k];
       if (item.type === "section") {
-        items.push({ type: "section", id: item.id, title: item.title || null });
+        var section = { type: "section", id: item.id, title: item.title || null };
+        if (item.isUnlisted) section.isUnlisted = true;
+        items.push(section);
       } else if (children[item.id]) {
         items.push(children[item.id]);
       }
@@ -1173,6 +1177,7 @@ async function article_update(args, ctx) {
       throw new Error("requiredArticles must be an array of article IDs.");
     update.requiredArticles = args.requiredArticles;
   }
+  if (args.isUnlisted !== undefined) update.isUnlisted = !!args.isUnlisted;
   if (args.settings !== undefined) {
     var articleSettings = typeof args.settings === "string" ? JSON.parse(args.settings) : args.settings;
     var article = await ctx.provider.fetchArticle({
@@ -1793,7 +1798,7 @@ async function folder_handler(args, ctx) {
       displayMode: args.displayMode || "list",
       showDesc: args.showDesc !== undefined ? args.showDesc : false,
       showThumb: args.showThumb !== undefined ? args.showThumb : false,
-      isHidden: args.isHidden !== undefined ? args.isHidden : false,
+      isUnlisted: args.isUnlisted !== undefined ? args.isUnlisted : false,
     };
 
     if (args.insertAt !== undefined && args.insertAt !== null) {
@@ -1836,7 +1841,7 @@ async function folder_handler(args, ctx) {
     if (args.displayMode !== undefined) updated.displayMode = args.displayMode;
     if (args.showDesc !== undefined) updated.showDesc = args.showDesc;
     if (args.showThumb !== undefined) updated.showThumb = args.showThumb;
-    if (args.isHidden !== undefined) updated.isHidden = args.isHidden;
+    if (args.isUnlisted !== undefined) updated.isUnlisted = args.isUnlisted;
     list[sectionIndex] = updated;
 
     await ctx.provider.updateFolder({

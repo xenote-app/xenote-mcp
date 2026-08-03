@@ -5,9 +5,11 @@ Ordered easiest → hardest.
 - [x] 1. Ask to use title on 'code' element to label the group of files
   Done 8/3/2026: `title? (recommended group label)` in the tools.js code settings, own line in code-and-files.md, and all three worked examples now carry a title.
   Guides only, no code. `settings.title` already exists and both guides list it, but nothing tells agents to set it — it sits in an "other settings" list while `layout` right above gets a strong directive. Real articles ship with unlabeled code groups.
-- [ ] 2. Tables in prose are not obvious and are rarely used — surface them where agents actually look.
+- [x] 2. Tables in prose are not obvious and are rarely used — surface them where agents actually look.
+  Done 8/3/2026: added `<table>` to the text type's tag list. No guide pointer — the elements guide is already prereq via the reading order.
   Root cause is in one string: the `text` type description at `tools.js:161` lists `<p>`, `<h2>`, `<strong>`, `<math>` and never `<table>` — it advertises the more exotic capability while omitting tables. It is also the only element type with no `get_guide()` directive, so nothing points at `guides/elements.md:14-25`, where a full "Tables (inside text)" section already exists. Fix is adding `<table>` to that list plus a guide pointer.
-- [ ] 3. Expose the 'unlist' logic in MCP so agents know how to use it. Also ask agents to make a common unlisted article instead of importing from another article — this avoids big issues later.
+- [x] 3. Expose the 'unlist' logic in MCP so agents know how to use it. Also ask agents to make a common unlisted article instead of importing from another article — this avoids big issues later.
+  Done 8/3/2026: article_update accepts isUnlisted; fetch/folder listings emit it (articles + sections) only when true. Also found and fixed a dead flag: the folder tool's section `isHidden` was never read by the app — renamed to `isUnlisted`, the field the viewer actually checks. Shared-library guidance added to the Cross-Article Imports section of frontend.md.
   `isUnlisted` already exists on article documents, just exposed nowhere. One schema property + one handler line + a guide note.
 - [ ] 4. Disable deleteArticle — keep the tool present, but reply that deletion must be a user action, pointing them to the folder to delete manually, with a manual link in the reply.
   Contained: replace the `deleteArticle` branch at `handlers.js:1733` (wired to `deleteArticleCall`) and rewrite the bit of the `folder` description that currently just warns it is irreversible.
