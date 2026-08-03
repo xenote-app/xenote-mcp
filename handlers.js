@@ -1742,14 +1742,18 @@ async function folder_handler(args, ctx) {
   }
 
   if (action === "deleteArticle") {
-    await httpsCallable(
-      ctx.functions,
-      "deleteArticleCall",
-    )({
-      domainId: domainId,
-      articleId: args.articleId,
-    });
-    return { articleId: args.articleId };
+    // Deletion is deliberately not automated — it's irreversible and must be
+    // a user decision. Point at the folder index, where the option lives.
+    var folderPath = (args.path || "").replace(/\/$/, "");
+    if (pathData && pathData.type === "article")
+      folderPath = folderPath.slice(0, folderPath.lastIndexOf("/"));
+    return {
+      deleted: false,
+      message:
+        "Articles can't be deleted over MCP — deletion is a user action. " +
+        "Ask the user to open the folder index, hover the article, and pick Delete from its options menu" +
+        (folderPath ? ": https://www.xenote.com/workspaces" + folderPath : "."),
+    };
   }
 
   if (action === "deleteFolder") {

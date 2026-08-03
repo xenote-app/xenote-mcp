@@ -250,6 +250,34 @@ function register(app) {
     );
   });
 
+  // Consent-screen support: resolve a pending authorization to display
+  // fields — the client's registered name and where the flow returns to.
+  // request_id is a capability for the pending auth; return nothing else.
+  app.get("/authorize/client", async function (req, res) {
+    var authorization = unseal(KIND_PENDING, req.query.request_id || "");
+    if (!authorization) {
+      res.status(400).json({ error: "invalid_request" });
+      return;
+    }
+    var client;
+    try {
+      client = await lookupClient(authorization.ci);
+    } catch (err) {
+      console.error("oauth: client lookup failed", err);
+      res.status(503).json({ error: "temporarily_unavailable" });
+      return;
+    }
+    if (!client) {
+      res.status(400).json({ error: "invalid_client" });
+      return;
+    }
+    var redirectHost = null;
+    try {
+      redirectHost = new URL(authorization.ru).host;
+    } catch (_) {}
+    res.json({ clientName: client.n || null, redirectHost: redirectHost });
+  });
+
   app.get("/authorize/callback", function (req, res) {
     var token = req.query.token;
     var authorization = unseal(KIND_PENDING, req.query.request_id || "");

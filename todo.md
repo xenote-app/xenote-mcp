@@ -11,9 +11,11 @@ Ordered easiest → hardest.
 - [x] 3. Expose the 'unlist' logic in MCP so agents know how to use it. Also ask agents to make a common unlisted article instead of importing from another article — this avoids big issues later.
   Done 8/3/2026: article_update accepts isUnlisted; fetch/folder listings emit it (articles + sections) only when true. Also found and fixed a dead flag: the folder tool's section `isHidden` was never read by the app — renamed to `isUnlisted`, the field the viewer actually checks. Shared-library guidance added to the Cross-Article Imports section of frontend.md.
   `isUnlisted` already exists on article documents, just exposed nowhere. One schema property + one handler line + a guide note.
-- [ ] 4. Disable deleteArticle — keep the tool present, but reply that deletion must be a user action, pointing them to the folder to delete manually, with a manual link in the reply.
+- [x] 4. Disable deleteArticle — keep the tool present, but reply that deletion must be a user action, pointing them to the folder to delete manually, with a manual link in the reply.
+  Done 8/3/2026: the deleteArticle branch no longer calls deleteArticleCall — it returns instructions plus the folder-index editor link (options menu → Delete). Tool description says it doesn't delete. deleteFolder unchanged.
   Contained: replace the `deleteArticle` branch at `handlers.js:1733` (wired to `deleteArticleCall`) and rewrite the bit of the `folder` description that currently just warns it is irreversible.
-- [ ] 5. Show the logged-in user's email on the MCP authentication page so they know which account they are authorizing.
+- [x] 5. Show the logged-in user's email on the MCP authentication page so they know which account they are authorizing.
+  Done 8/3/2026: "Signed in as <email>" line on the authorize card in notebook MCPAuth.jsx (user.email, same pattern as CreateDomain).
   `notebook/src/modules/app/views/MCPAuth.jsx` is 95 lines and already holds the user object in scope — close to a one-line addition.
 - [ ] 6. Minimize for the MCP presence indicator (front-end side).
   Self-contained UI state in `notebook/src/modules/agent/views/MCPPresence.jsx`.
