@@ -19,6 +19,7 @@ var {
   deleteDoc,
   runTransaction,
   deleteField,
+  increment,
   onSnapshot,
   serverTimestamp,
   Timestamp,
@@ -221,6 +222,13 @@ function createProvider(db, storage) {
         transaction.delete(doc(elementsRef, id));
       });
 
+      // Deleted work still counts as change: fold each element's edit
+      // history (+1 per deletion) into the article's deletedEdits odometer.
+      var deletedEdits = 0;
+      all.forEach(function (element) {
+        if (deleted[element.id]) deletedEdits += (element.data.edits || 0) + 1;
+      });
+
       var layout = articleSnap.data().layout || { order: [], type: "scroll" };
       var updatedLayout = Object.assign({}, layout, {
         order: (layout.order || []).filter(function (id) { return !deleted[id]; }),
@@ -230,7 +238,10 @@ function createProvider(db, storage) {
         Object.keys(deleted).forEach(function (id) { delete gridElements[id]; });
         updatedLayout.grid = Object.assign({}, layout.grid, { elements: gridElements });
       }
-      transaction.update(articleRef, { layout: updatedLayout });
+      transaction.update(articleRef, {
+        layout: updatedLayout,
+        deletedEdits: increment(deletedEdits),
+      });
       return Object.keys(deleted);
     });
   }

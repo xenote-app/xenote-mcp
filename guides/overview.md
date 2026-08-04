@@ -39,6 +39,8 @@ Articles have a **live working copy** (what you edit) and frozen **version snaps
 2. Now accessible at /workspace-slug/article-slug
 3. Other articles can import: import { X } from '/workspace-slug/article-slug/file.js'
 
+**Knowing what's saved:** fetch on a versioned article reports `versions: { published, latest }` (slugs) and `draftEdits` — live edits not yet in any version (absent when clean). If draftEdits is large or published lags latest, suggest versioning/publishing to the user.
+
 **Other version actions:**
 - version({ action: "list" }) — see all versions of the current article
 - version({ action: "revert", versionId: "xyz" }) — restore working copy to a version (destructive)

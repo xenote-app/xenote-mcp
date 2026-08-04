@@ -8,6 +8,7 @@ Rich text as HTML (NOT markdown).
 - Tags: <p>, <h2>, <h3>, <strong>, <em>, <ul>, <li>, <ol>, <a>, <code>, <pre>, <br>, <math>, <table>
 - <math> uses KaTeX syntax: `<math>x^2 + y^2 = z^2</math>` renders as inline math. Use standard LaTeX notation inside the tag.
 - Every paragraph must be wrapped in <p> tags
+- Prose splits like notebook cells — a few paragraphs per element.
 - NEVER use markdown syntax (no #, **, -, backticks)
 - settings: { alignment?, columns? (null|2|3), css? (""|"gray"), spellCheck? }
 

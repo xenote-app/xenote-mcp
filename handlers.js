@@ -173,6 +173,23 @@ async function fetch_handler(args, ctx) {
   if (article && article.requiredArticles && article.requiredArticles.length > 0)
     result.requiredArticles = article.requiredArticles;
   if (article && article.isUnlisted) result.isUnlisted = true;
+  if (article && article.latestVersion) {
+    result.versions = {
+      published: article.publishedVersionSlug || null,
+      latest: article.latestVersion,
+    };
+    // Live edits (incl. deleted history) beyond the last version snapshot.
+    if (article.lastSavedEdits !== undefined) {
+      var liveEdits = elements.reduce(function (sum, el) {
+        return sum + (el.edits || 0);
+      }, 0);
+      var draftEdits = Math.max(
+        0,
+        liveEdits + (article.deletedEdits || 0) - article.lastSavedEdits,
+      );
+      if (draftEdits > 0) result.draftEdits = draftEdits;
+    }
+  }
   return result;
 }
 
@@ -696,7 +713,7 @@ async function element_create(args, ctx) {
   }
 
   var defaults = DEFAULT_SETTINGS[type] || {};
-  var data = { type: type, edits: 0 };
+  var data = { type: type, edits: 1 };
   if (content !== undefined) data.content = content;
   data.settings = Object.assign({}, defaults, settings || {});
   if (type === "web-runner" && settings && settings.importMap) {
@@ -797,6 +814,9 @@ async function element_create(args, ctx) {
       "get_guide('code-and-files') covers editing patterns and element_patch usage.",
   };
   if (tips[type]) createResult.tip = tips[type];
+  if (type === "text" && isBulkText(data.content)) {
+    createResult.tip = TEXT_SPLIT_TIP;
+  }
   if (type === "text" && data.content && data.content.indexOf("<table") !== -1) {
     createResult.tip = TEXT_TABLE_TIP;
   }
@@ -808,10 +828,20 @@ async function element_create(args, ctx) {
   return createResult;
 }
 
+// Fires on bulk prose — one text element carrying a whole article.
+var TEXT_SPLIT_TIP =
+  "Split like notebook cells: a few paragraphs per text element.";
+
 // Fires on contact with tables — the two rules agents most often miss.
 var TEXT_TABLE_TIP =
   "Tables: wrap every cell's content in <p> (no <thead>/<tbody>; first row uses <th>). " +
   "Size a column with data-colwidth (px) on its cells. get_guide('elements') has the full shape.";
+
+function isBulkText(content) {
+  if (!content) return false;
+  var h2s = content.split("<h2").length - 1;
+  return h2s >= 2 || content.length > 4000;
+}
 
 function resolveBatchRef(value, created) {
   if (typeof value !== "string" || value.charAt(0) !== "@") return value;
@@ -1012,6 +1042,9 @@ async function element_update(args, ctx) {
       .catch(function () {});
 
   var updateResult = { id: id, appliedData: data };
+  if (el.type === "text" && isBulkText(data.content)) {
+    updateResult.tip = TEXT_SPLIT_TIP;
+  }
   if (
     el.type === "text" &&
     data.content &&
@@ -1330,7 +1363,7 @@ async function version_handler(args, ctx) {
     });
     return {
       versions: versions.map(function (v) {
-        return {
+        var item = {
           id: v.id,
           label: v.label,
           slug: v.slug,
@@ -1339,6 +1372,9 @@ async function version_handler(args, ctx) {
           isPublished: v.id === publishedVersionId,
           createdAt: v.createdAt,
         };
+        if (v.editCount !== undefined) item.editCount = v.editCount;
+        if (v.elementCount !== undefined) item.elementCount = v.elementCount;
+        return item;
       }),
     };
   }
@@ -1949,6 +1985,20 @@ async function folder_handler(args, ctx) {
   }
 
   if (action === "renameSlug") {
+    // Article slugs only. Folder and workspace slugs are the URL namespace
+    // for everything beneath them — renaming those is a user decision made
+    // in the UI, never an agent call. (The cloud function's old fallback
+    // renamed the whole workspace when no target was given.)
+    if (!args.articleId) {
+      return {
+        renamed: false,
+        message:
+          "renameSlug over MCP only renames articles — pass articleId. " +
+          "Folder and workspace slugs are the public URL namespace for everything " +
+          "inside them; ask the user to rename those in the UI (workspace settings, " +
+          "or the folder's options menu).",
+      };
+    }
     await httpsCallable(
       ctx.functions,
       "renameSlugCall",
@@ -1956,13 +2006,8 @@ async function folder_handler(args, ctx) {
       domainId: domainId,
       slug: args.slug,
       articleId: args.articleId,
-      folderId: args.folderId,
     });
-    return {
-      slug: args.slug,
-      articleId: args.articleId,
-      folderId: args.folderId,
-    };
+    return { slug: args.slug, articleId: args.articleId };
   }
 
   throw new Error("Unknown folder action: " + action);
