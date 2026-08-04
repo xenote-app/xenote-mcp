@@ -113,7 +113,11 @@ async function fetch_handler(args, ctx) {
     var workspaces = [];
     for (var j = 0; j < orderedIds.length; j++) {
       var d = await ctx.provider.fetchDomain(orderedIds[j]);
-      if (d) workspaces.push({ slug: d.slug, title: d.title, description: d.description || null, id: d.id });
+      if (d) {
+        var ws = { slug: d.slug, title: d.title, description: d.description || null, id: d.id };
+        if (d.id === ctx.uid) ws.isPrimary = true;
+        workspaces.push(ws);
+      }
     }
     var userName = (userInfo && userInfo.name) || (ctx.user && ctx.user.name) || null;
     var userEmail = ctx.user && ctx.user.email || null;
