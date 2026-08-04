@@ -2168,6 +2168,56 @@ function nextVersionSlug(latest) {
   );
 }
 
+// Base64 through the MCP transport costs ~500 tokens per KB — cap it small.
+var BASE64_MAX_BYTES = 200 * 1024;
+
+async function article_upload(args, ctx) {
+  if (!args.articlePath) throw new Error("articlePath is required");
+  if (!args.filename) throw new Error("filename is required");
+  var pathData = await ctx.resolve.resolvePath(args.articlePath);
+  if (pathData.type !== "article")
+    throw new Error("articlePath must point to an article");
+
+  if (args.requestUploadUrl) {
+    if (!args.size)
+      throw new Error("size (bytes) is required with requestUploadUrl");
+    var result = await httpsCallable(ctx.functions, "getUploadUrlCall")({
+      domainId: pathData.domainId,
+      articleId: pathData.articleId,
+      filename: args.filename,
+      size: args.size,
+      contentType: args.contentType,
+    });
+    var signed = result.data;
+    signed.tip =
+      "PUT the bytes with the same Content-Type, e.g.: curl -X PUT -H 'Content-Type: " +
+      signed.contentType + "' -T <file> '<uploadUrl>'. The upload is processed " +
+      "automatically; then reference '" + args.filename + "' in images entries or settings.";
+    return signed;
+  }
+
+  if (args.base64) {
+    var decodedBytes = Math.floor(args.base64.length * 0.75);
+    if (decodedBytes > BASE64_MAX_BYTES)
+      throw new Error(
+        "base64 is capped at 200KB (token cost). Use url, or requestUploadUrl " +
+          "+ curl if you have shell access.",
+      );
+  }
+  var uploadResult = await httpsCallable(ctx.functions, "uploadFromSourceCall")({
+    domainId: pathData.domainId,
+    articleId: pathData.articleId,
+    filename: args.filename,
+    url: args.url,
+    base64: args.base64,
+    contentType: args.contentType,
+  });
+  var data = uploadResult.data;
+  data.tip =
+    "Reference '" + args.filename + "' in images entries ({ filename }) or element settings.";
+  return data;
+}
+
 module.exports = {
   get_guide: get_guide_handler,
   fetch: fetch_handler,
@@ -2184,6 +2234,7 @@ module.exports = {
   version: version_handler,
   folder: folder_handler,
   element_run: element_run,
+  article_upload: article_upload,
   decodeEntities: decodeEntities,
 };
 

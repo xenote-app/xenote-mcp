@@ -43,6 +43,7 @@ var handlerMap = {
   version: handlers.version,
   folder: handlers.folder,
   element_run: handlers.element_run,
+  article_upload: handlers.article_upload,
 };
 
 // Client-agnostic tool inventory for the instructions block. Some MCP clients

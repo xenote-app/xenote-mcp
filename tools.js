@@ -164,7 +164,7 @@ var tools = [
             'web-runner: get_guide("frontend") before use. create code+files first. React 19 is in importMap by default — additional imports are merged, not replaced. settings: { target (required, .jsx filename), importMap?, isChromeless?, layout?, height?, autoHeight? }\n' +
             'box-runner: get_guide("backend") before use. settings: { command (required, e.g. "node app.js") }\n' +
             'kernel-runner: get_guide("backend") before use. content is Python code, no parentId needed\n' +
-            "images: uses entries not content. entries: [{ filename (required, local filename (upload or pulled) or https URL), caption? }]. settings: { galleryType?, widthMode?, aspectRatio?, alignment?, hasBorder?, fitting? ('cover'|'contain'), fillerColor? }\n" +
+            "images: uses entries not content. entries: [{ filename (required — an article_upload/pulled filename, or https URL), caption? }]. settings: { galleryType?, widthMode?, aspectRatio?, alignment?, hasBorder?, fitting? ('cover'|'contain'), fillerColor? }\n" +
             "iframe: settings: { embedUrl (required), widthMode?, aspectRatio?, alignment?, hasBorder? }\n" +
             "excalidraw: content is JSON.stringify of elements array. settings: { maxWidth?, percentWidth?, caption?, alignment?, hasBorder?, hasPadding?, backgroundColor? }",
         },
@@ -558,6 +558,29 @@ var tools = [
         },
       },
       required: ["action"],
+    },
+  },
+  {
+    name: "article_upload",
+    description:
+      "Upload a binary file (image, audio, 3D model...) to an article. Prefer url (server fetches it). base64 is for small files only (~500 tokens/KB, 200KB cap). With shell access, use requestUploadUrl + size for a signed PUT and curl the bytes — no tokens. Reference the filename in images entries or element settings afterward.",
+    annotations: {
+      title: "Upload File",
+      destructiveHint: false,
+      openWorldHint: true,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        articlePath: ARTICLE_PATH_PROP.articlePath,
+        filename: { type: "string", description: "Filename for the upload, e.g. 'hero.png'" },
+        url: { type: "string", description: "https URL to fetch server-side (preferred)" },
+        base64: { type: "string", description: "Base64 file content (small files only)" },
+        contentType: { type: "string", description: "MIME type (inferred from url response if omitted)" },
+        requestUploadUrl: { type: "boolean", description: "Return a signed PUT URL instead of uploading" },
+        size: { type: "number", description: "File size in bytes (required with requestUploadUrl)" },
+      },
+      required: ["articlePath", "filename"],
     },
   },
   {
