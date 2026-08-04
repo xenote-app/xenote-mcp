@@ -140,6 +140,9 @@ function createMCPServer(sessionCtx) {
         ],
       };
     } catch (e) {
+      // Surfaces in Cloud Run logs (severity WARNING) — tool errors are
+      // otherwise only ever seen by the agent.
+      console.warn("[tool-error]", name, e.message, JSON.stringify(args).slice(0, 800));
       var message = e.message;
       if (e.code === "permission-denied") {
         message =
