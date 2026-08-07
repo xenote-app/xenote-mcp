@@ -188,6 +188,21 @@ function register(app) {
     var client;
     try {
       client = await lookupClient(clientId);
+      // A well-formed id with no registration is a client whose cached
+      // registration this backend doesn't have (lost data, environment
+      // switch) — rejecting it strands that client forever. Ids are random
+      // UUIDs and /register is open, so adopting an unclaimed id grants
+      // nothing self-registration wouldn't; the cloud function creates the
+      // doc only if absent, so existing registrations keep their
+      // redirect_uri binding.
+      if (!client && UUID_RE.test(clientId) && validRedirectUri(redirectUri)) {
+        var adopted = await httpsCallable(sharedFunctions, "registerMcpClientCall")({
+          client_id: clientId,
+          client_name: "Unregistered client",
+          redirect_uris: [redirectUri],
+        });
+        client = { n: adopted.data.client_name, r: adopted.data.redirect_uris };
+      }
     } catch (err) {
       console.error("oauth: client lookup failed", err);
       res.status(503).json({
