@@ -56,7 +56,6 @@ async function resolveToken(token, clientName) {
 function closeSession(sid) {
   var session = sessions[sid];
   if (!session) return;
-  if (session.clearPresence) session.clearPresence().catch(function () {});
   session.cleanup().catch(function () {});
   delete sessions[sid];
 }
@@ -206,13 +205,16 @@ function register(app) {
         functions: sessionApp.functions,
         storage: sessionApp.storage,
         user: resolved.user,
+        token: token,
+        getSessionId: function () {
+          return transport.sessionId || null;
+        },
       });
 
       mcp.server.connect(transport).then(function () {
         var sid = transport.sessionId;
         if (sid && sessions[sid]) {
           sessions[sid].server = mcp.server;
-          sessions[sid].clearPresence = mcp.clearPresence;
         }
         transport.handleRequest(req, res, req.body);
       });

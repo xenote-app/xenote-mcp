@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "xenote-local": {
+      "type": "http",
+      "url": "http://localhost:3459/mcp"
+    }
+  }
+}

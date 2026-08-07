@@ -86,12 +86,49 @@ function createMCPServer(sessionCtx) {
 
   var provider = createProvider(sessionCtx.db, sessionCtx.storage);
   var resolve = createResolve(provider);
+
+  // Agent identity is resolved lazily on the first tool call: the MCP session
+  // id doesn't exist until the transport initializes, and clientInfo arrives
+  // with the initialize request. Resolution adopts a quiet entry from a prior
+  // session of the same client (see provider.resolveAgent) or creates a new
+  // one — in which case the feed gets its "connected" event.
+  var agentIdPromise = null;
+  function getAgentId() {
+    if (!agentIdPromise) {
+      agentIdPromise = (async function () {
+        var clientVersion = server.getClientVersion();
+        var resolved = await provider.resolveAgent(sessionCtx.uid, {
+          token: sessionCtx.token || null,
+          sessionId: (sessionCtx.getSessionId && sessionCtx.getSessionId()) || null,
+          clientName: clientVersion ? clientVersion.name : null,
+          clientVersion: clientVersion ? clientVersion.version : null,
+        });
+        if (resolved.isNew) {
+          provider
+            .logEvent(sessionCtx.uid, {
+              type: "connected",
+              agentId: resolved.agentId,
+              clientName: clientVersion ? clientVersion.name : null,
+            })
+            .catch(function () {});
+        }
+        return resolved.agentId;
+      })();
+      // A failed resolution must not poison every later call.
+      agentIdPromise.catch(function () {
+        agentIdPromise = null;
+      });
+    }
+    return agentIdPromise;
+  }
+
   var ctx = {
     uid: sessionCtx.uid,
     provider: provider,
     resolve: resolve,
     functions: sessionCtx.functions,
     user: sessionCtx.user || null,
+    getAgentId: getAgentId,
   };
 
   server.setRequestHandler(ListToolsRequestSchema, function () {
@@ -114,21 +151,18 @@ function createMCPServer(sessionCtx) {
       };
     }
 
-    // Update presence — track where the AI is focused. Events (file edits,
-    // publishes) go to the presenceLog subcollection via provider.logEvent.
+    // Update this agent's presence entry — "present tense" focus (toolName,
+    // path, lastSeen). Narrative events (edits, publishes, errors) go to the
+    // presenceLog feed via provider.logEvent.
     var focusPath =
       args.articlePath || (name !== "public_fetch" ? args.path : null) || null;
-    if (focusPath) {
-      var clientVersion = server.getClientVersion();
-      var clientName = clientVersion ? clientVersion.name : null;
-      provider
-        .setPresence(ctx.uid, {
-          toolName: name,
-          path: focusPath,
-          clientName: clientName,
-        })
-        .catch(function () {});
-    }
+    getAgentId()
+      .then(function (agentId) {
+        var update = { toolName: name };
+        if (focusPath) update.path = focusPath;
+        return provider.updateAgentPresence(ctx.uid, agentId, update);
+      })
+      .catch(function () {});
 
     try {
       var result = await handler(args, ctx);
@@ -144,6 +178,18 @@ function createMCPServer(sessionCtx) {
       // Surfaces in Cloud Run logs (severity WARNING) — tool errors are
       // otherwise only ever seen by the agent.
       console.warn("[tool-error]", name, e.message, JSON.stringify(args).slice(0, 800));
+      // Errors are a significant feed event (unread dot / bubble).
+      getAgentId()
+        .then(function (agentId) {
+          return provider.logEvent(ctx.uid, {
+            type: "error",
+            agentId: agentId,
+            tool: name,
+            path: focusPath,
+            message: String(e.message || e).slice(0, 500),
+          });
+        })
+        .catch(function () {});
       var message = e.message;
       if (e.code === "permission-denied") {
         message =
@@ -192,12 +238,9 @@ function createMCPServer(sessionCtx) {
     };
   });
 
-  return {
-    server: server,
-    clearPresence: function () {
-      return provider.clearPresence(ctx.uid);
-    },
-  };
+  // No presence cleanup on session close: the agent entry outlives the
+  // session so a reconnect can adopt it; staleness and TTL retire it.
+  return { server: server };
 }
 
 module.exports = { createMCPServer };

@@ -332,55 +332,120 @@ function createProvider(db, storage) {
   }
 
   // ── Presence ───────────────────────────────────────────────────────────
+  //
+  // Per-agent model (see presence-redesign.md): one doc per live agent under
+  // mcpPresence/{uid}/agents, one heartbeat doc per browser tab under
+  // mcpPresence/{uid}/tabs. Attachment is a 1:1 pairing — attachedTabId on
+  // the agent entry, tab liveness from the tab doc's heartbeat.
 
   var ATTACH_LEASE_MS = 90 * 1000;
+  var AGENT_TTL_MS = 24 * 60 * 60 * 1000;
+  // A new MCP session adopts an existing entry (same token + client) only if
+  // that entry has gone quiet — concurrent activity means a genuinely
+  // separate window, which stays its own agent.
+  var ADOPT_QUIET_MS = 75 * 1000;
 
-  function hasActiveAttachment(presence) {
-    if (!presence || !presence.attachedTabId || !presence.attachedLastSeen) {
-      return false;
+  function agentRef(uid, agentId) {
+    return doc(db, "mcpPresence", uid, "agents", agentId);
+  }
+
+  // Resolve the agent entry for an MCP session. The spec offers no stable
+  // per-window identity (clientInfo names the product, session ids churn on
+  // reconnect), so: reuse the entry already bound to this sessionId, else
+  // adopt a quiet entry with the same token + clientName (a reconnect), else
+  // create a fresh entry (a genuinely new agent).
+  async function resolveAgent(uid, info) {
+    var snapshot = await getDocs(
+      query(
+        collection(db, "mcpPresence", uid, "agents"),
+        where("token", "==", info.token),
+      ),
+    );
+    var candidates = snapshot.docs.map(function (d) {
+      return { id: d.id, ...d.data() };
+    });
+
+    for (var i = 0; i < candidates.length; i++) {
+      if (candidates[i].sessionId === info.sessionId) {
+        return { agentId: candidates[i].id, isNew: false };
+      }
     }
-    return Date.now() - presence.attachedLastSeen.toMillis() < ATTACH_LEASE_MS;
-  }
 
-  async function getPresence(uid) {
-    var snap = await getDoc(doc(db, "mcpPresence", uid));
-    return snap.exists() ? snap.data() : null;
-  }
-
-  async function getActivePresence(uid) {
-    var ref = doc(db, "mcpPresence", uid);
-    var snap = await getDoc(ref);
-    var presence = snap.exists() ? snap.data() : null;
-    if (hasActiveAttachment(presence)) return presence;
-
-    // A lease can expire when a tab crashes and cannot run its pagehide
-    // cleanup. Clear only if it is still expired when the transaction commits,
-    // so a newly attached tab cannot be detached by an older request.
-    if (presence && presence.attachedTabId) {
-      await runTransaction(db, async function (transaction) {
-        var current = await transaction.get(ref);
-        var data = current.exists() ? current.data() : null;
-        if (data && data.attachedTabId && !hasActiveAttachment(data)) {
-          transaction.update(ref, {
-            attachedTabId: deleteField(),
-            attachedLastSeen: deleteField(),
-          });
-        }
+    var now = Date.now();
+    for (var j = 0; j < candidates.length; j++) {
+      var c = candidates[j];
+      if (c.clientName !== (info.clientName || null)) continue;
+      var lastSeenMs = c.lastSeen && c.lastSeen.toMillis ? c.lastSeen.toMillis() : 0;
+      if (now - lastSeenMs < ADOPT_QUIET_MS) continue;
+      // Re-check quietness inside the transaction: two reconnecting sessions
+      // may race for the same entry; the loser sees a fresh lastSeen/sessionId
+      // and falls through to creating its own.
+      var adopted = await runTransaction(db, async function (transaction) {
+        var current = await transaction.get(agentRef(uid, c.id));
+        if (!current.exists()) return false;
+        var data = current.data();
+        if (data.sessionId !== c.sessionId) return false;
+        var ls = data.lastSeen && data.lastSeen.toMillis ? data.lastSeen.toMillis() : 0;
+        if (Date.now() - ls < ADOPT_QUIET_MS) return false;
+        transaction.update(agentRef(uid, c.id), {
+          sessionId: info.sessionId,
+          clientVersion: info.clientVersion || null,
+          lastSeen: serverTimestamp(),
+          expiresAt: Timestamp.fromMillis(Date.now() + AGENT_TTL_MS),
+        });
+        return true;
       });
+      if (adopted) return { agentId: c.id, isNew: false };
     }
-    return null;
-  }
-  async function setPresence(uid, data) {
-    var presenceData = {
-      toolName: data.toolName || null,
+
+    var created = await addDoc(collection(db, "mcpPresence", uid, "agents"), {
+      token: info.token,
+      clientName: info.clientName || null,
+      clientVersion: info.clientVersion || null,
+      sessionId: info.sessionId,
+      toolName: null,
+      path: null,
+      attachedTabId: null,
       lastSeen: serverTimestamp(),
-      connected: true,
+      createdAt: serverTimestamp(),
+      expiresAt: Timestamp.fromMillis(Date.now() + AGENT_TTL_MS),
+    });
+    return { agentId: created.id, isNew: true };
+  }
+
+  async function updateAgentPresence(uid, agentId, data) {
+    var update = {
+      lastSeen: serverTimestamp(),
+      expiresAt: Timestamp.fromMillis(Date.now() + AGENT_TTL_MS),
     };
-    if (data.path !== undefined) presenceData.path = data.path;
-    if (data.clientName) presenceData.clientName = data.clientName;
-    // merge: the browser tab co-writes attachedTabId into this doc — a plain
-    // overwrite would silently detach the tab on every tool call.
-    await setDoc(doc(db, "mcpPresence", uid), presenceData, { merge: true });
+    if (data.toolName !== undefined) update.toolName = data.toolName;
+    if (data.path !== undefined) update.path = data.path;
+    // merge: the browser co-writes attachedTabId into this doc.
+    await setDoc(agentRef(uid, agentId), update, { merge: true });
+  }
+
+  // The agent's paired tab, if that tab's heartbeat is alive. Lazily clears
+  // a pairing whose tab died without running pagehide cleanup — inside a
+  // transaction, so a newly attached tab is never detached by a stale check.
+  async function getAgentAttachment(uid, agentId) {
+    var snap = await getDoc(agentRef(uid, agentId));
+    if (!snap.exists()) return null;
+    var tabId = snap.data().attachedTabId;
+    if (!tabId) return null;
+
+    var tabSnap = await getDoc(doc(db, "mcpPresence", uid, "tabs", tabId));
+    var tab = tabSnap.exists() ? tabSnap.data() : null;
+    var lastSeenMs =
+      tab && tab.lastSeen && tab.lastSeen.toMillis ? tab.lastSeen.toMillis() : 0;
+    if (Date.now() - lastSeenMs < ATTACH_LEASE_MS) return { tabId: tabId };
+
+    await runTransaction(db, async function (transaction) {
+      var current = await transaction.get(agentRef(uid, agentId));
+      if (current.exists() && current.data().attachedTabId === tabId) {
+        transaction.update(agentRef(uid, agentId), { attachedTabId: null });
+      }
+    });
+    return null;
   }
 
   // Append-only event stream: one doc per event under
@@ -396,10 +461,6 @@ function createProvider(db, storage) {
       createdAt: serverTimestamp(),
       expiresAt: Timestamp.fromMillis(Date.now() + LOG_TTL_MS),
     });
-  }
-
-  async function clearPresence(uid) {
-    await deleteDoc(doc(db, "mcpPresence", uid));
   }
 
   // ── Run Requests ───────────────────────────────────────────────────────
@@ -466,11 +527,10 @@ function createProvider(db, storage) {
     updateVersion: _updateVersion,
     fetchUserInfo: fetchUserInfo,
     fetchUserDomains: fetchUserDomains,
-    getPresence: getPresence,
-    getActivePresence: getActivePresence,
-    setPresence: setPresence,
+    resolveAgent: resolveAgent,
+    updateAgentPresence: updateAgentPresence,
+    getAgentAttachment: getAgentAttachment,
     logEvent: logEvent,
-    clearPresence: clearPresence,
     createRunRequest: createRunRequest,
     waitForRunResult: waitForRunResult,
     deleteRunRequest: deleteRunRequest,

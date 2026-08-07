@@ -54,13 +54,24 @@ function expandTypographyPreset(presetId) {
 }
 
 async function browserAttachmentStatus(ctx) {
-  var attached = !!(await ctx.provider.getActivePresence(ctx.uid));
+  var agentId = await ctx.getAgentId();
+  var attached = !!(await ctx.provider.getAgentAttachment(ctx.uid, agentId));
   return {
     attached: attached,
     message: attached
-      ? "An attached browser will receive this file update."
-      : "No browser is attached; this file update was saved but was not delivered to a browser.",
+      ? "An attached browser tab will receive this file update."
+      : "No browser tab is attached to this agent; the update was saved but not delivered to a browser.",
   };
+}
+
+// Fire-and-forget feed event tagged with this agent's id.
+function logAgentEvent(ctx, event) {
+  ctx
+    .getAgentId()
+    .then(function (agentId) {
+      return ctx.provider.logEvent(ctx.uid, Object.assign({ agentId: agentId }, event));
+    })
+    .catch(function () {});
 }
 
 // ── Read-only Tools ──────────────────────────────────────────────────────────
@@ -1029,21 +1040,18 @@ async function element_update(args, ctx) {
     data: updateData,
   });
 
-  // Log the edit so an attached browser tab can react to it.
   if (
     el.type === "file" &&
     data.content !== undefined &&
     el.settings &&
     el.settings.filename
   )
-    ctx.provider
-      .logEvent(ctx.uid, {
-        type: "fileChange",
-        path: args.articlePath,
-        filename: el.settings.filename,
-        edits: edits,
-      })
-      .catch(function () {});
+    logAgentEvent(ctx, {
+      type: "fileEdit",
+      path: args.articlePath,
+      filename: el.settings.filename,
+      edits: edits,
+    });
 
   var updateResult = { id: id, appliedData: data };
   if (el.type === "text" && isBulkText(data.content)) {
@@ -1128,14 +1136,12 @@ async function element_patch(args, ctx) {
   });
 
   if (el.type === "file" && el.settings && el.settings.filename)
-    ctx.provider
-      .logEvent(ctx.uid, {
-        type: "fileChange",
-        path: args.articlePath,
-        filename: el.settings.filename,
-        edits: edits,
-      })
-      .catch(function () {});
+    logAgentEvent(ctx, {
+      type: "fileEdit",
+      path: args.articlePath,
+      filename: el.settings.filename,
+      edits: edits,
+    });
 
   var patchResult = { id: id, edits: edits };
   if (el.type === "file") {
@@ -1407,11 +1413,11 @@ async function version_handler(args, ctx) {
         versionId: args.versionId,
       });
       data.isPublished = true;
-      ctx.provider.logEvent(ctx.uid, {
+      logAgentEvent(ctx, {
         type: "published",
         path: args.articlePath,
         slug: args.versionId,
-      }).catch(function () {});
+      });
     } else if (args.isPublished === false) {
       await httpsCallable(
         ctx.functions,
@@ -1495,12 +1501,12 @@ async function version_handler(args, ctx) {
       versionResult.tip =
         "If other articles import from this one, they must also be republished to pick up these changes. " +
         "Their published versions still point to the previous snapshot until you republish them.";
-      ctx.provider.logEvent(ctx.uid, {
+      logAgentEvent(ctx, {
         type: "published",
         path: args.articlePath,
         label: version.label,
         slug: version.slug,
-      }).catch(function () {});
+      });
     }
     return versionResult;
   }
@@ -1721,6 +1727,11 @@ async function folder_handler(args, ctx) {
       "https://www.xenote.com/workspaces" + articlePath;
     createResult.tip =
       "Pass this 'path' as the articlePath argument to element_create and other element_* tools.";
+    logAgentEvent(ctx, {
+      type: "articleCreated",
+      path: articlePath,
+      title: args.title,
+    });
 
     // Attach the folder index with organizing feedback — agents act on tool
     // responses far more reliably than on guides. Best-effort: creation
@@ -2244,11 +2255,12 @@ async function element_run(args, ctx) {
   if (!articlePath) throw new Error("articlePath is required");
   if (!elementId) throw new Error("id is required");
 
-  // Check if a browser tab is attached
-  var presenceSnap = await ctx.provider.getActivePresence(ctx.uid);
-  if (!presenceSnap) {
+  // Check that this agent has a live paired tab — the stage runs execute on.
+  var agentId = await ctx.getAgentId();
+  var attachment = await ctx.provider.getAgentAttachment(ctx.uid, agentId);
+  if (!attachment) {
     throw new Error(
-      "No browser tab is attached. Open Xenote in a browser and click Attach on the presence indicator.",
+      "No browser tab is attached to this agent. Ask the user to open Xenote and click Attach on this agent's presence entry.",
     );
   }
 
@@ -2270,11 +2282,14 @@ async function element_run(args, ctx) {
     );
   }
 
-  // Create run request and wait for browser to execute
+  // Create run request and wait for browser to execute. Tagged with the
+  // agent and its paired tab so only that tab picks it up.
   var requestId = await ctx.provider.createRunRequest(ctx.uid, {
     articlePath: articlePath,
     elementId: elementId,
     elementType: element.type,
+    agentId: agentId,
+    targetTabId: attachment.tabId,
   });
 
   try {
