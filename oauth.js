@@ -196,9 +196,19 @@ function register(app) {
       // doc only if absent, so existing registrations keep their
       // redirect_uri binding.
       if (!client && UUID_RE.test(clientId) && validRedirectUri(redirectUri)) {
+        // The authorize request carries no client_name, so label the adopted
+        // registration by the redirect host — enough to tell entries apart.
+        // The "(unregistered)" suffix keeps the consent screen honest: the
+        // name is inferred, not claimed through registration.
+        var adoptedName;
+        try {
+          adoptedName = new URL(redirectUri).hostname + " (unregistered)";
+        } catch (_) {
+          adoptedName = "Unregistered client";
+        }
         var adopted = await httpsCallable(sharedFunctions, "registerMcpClientCall")({
           client_id: clientId,
-          client_name: "Unregistered client",
+          client_name: req.query.client_name || adoptedName,
           redirect_uris: [redirectUri],
         });
         client = { n: adopted.data.client_name, r: adopted.data.redirect_uris };
