@@ -4,15 +4,15 @@
  * Firestore EMULATOR (no MCP client, no auth; uses the emulator owner bypass).
  *
  * Usage:
- *   node sim.js work [--secs 45] [--client claude-code] [--path /logic-lab]
+ *   node scripts/presence-sim.js work [--secs 45] [--client claude-code] [--path /logic-lab]
  *       Agent connects (if new) and works: presence updates + toolCall/fileEdit
  *       feed events every ~2s, alternating read/write. Ctrl-C or --secs end.
- *   node sim.js second        A second agent (codex) works for 30s alongside.
- *   node sim.js publish       Emit a `published` event (bubble + unread).
- *   node sim.js error         Emit an `error` event (bubble + unread).
- *   node sim.js idle          One presence touch, no loop (tests time-ago).
- *   node sim.js stale         Push the agent's lastSeen 10 min back.
- *   node sim.js clean         Delete all agents, tabs, and feed events.
+ *   node scripts/presence-sim.js second        A second agent (codex) works for 30s alongside.
+ *   node scripts/presence-sim.js publish       Emit a `published` event (bubble + unread).
+ *   node scripts/presence-sim.js error         Emit an `error` event (bubble + unread).
+ *   node scripts/presence-sim.js idle          One presence touch, no loop (tests time-ago).
+ *   node scripts/presence-sim.js stale         Push the agent's lastSeen 10 min back.
+ *   node scripts/presence-sim.js clean         Delete all agents, tabs, and feed events.
  *
  * Options: --uid <uid> (else auto-detected from existing data or auth
  * emulator), --client <name>, --path </workspace/article>, --secs <n>.
