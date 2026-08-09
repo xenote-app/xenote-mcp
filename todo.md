@@ -25,5 +25,7 @@
 - Enable Firestore TTL policies on `expiresAt` for
   `mcpPresence/*/agents` and `mcpPresence/*/tabs` (presenceLog already
   has one).
-- Deploy: firestore.rules, cloud functions (registerMcpClientCall change,
-  listMcpTokensCall, revokeMcpTokenCall), the app, and the MCP server.
+- Deploy: firestore.rules, firestore indexes (new presenceLog
+  agentId+createdAt composite for the per-agent panel log), cloud functions
+  (registerMcpClientCall change, listMcpTokensCall, revokeMcpTokenCall),
+  the app, and the MCP server.

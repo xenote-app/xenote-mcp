@@ -413,8 +413,16 @@ function createProvider(db, storage) {
     return { agentId: created.id, isNew: true };
   }
 
-  async function updateAgentPresence(uid, agentId, data) {
+  // Identity fields (token, clientName, …) ride along on every update, not
+  // just creation: the doc can vanish under a live session (TTL deletion, an
+  // emulator wipe) and this merge-create silently resurrects it — carrying
+  // identity makes that resurrection whole instead of hollow.
+  async function updateAgentPresence(uid, agentId, info, data) {
     var update = {
+      token: info.token || null,
+      clientName: info.clientName || null,
+      clientVersion: info.clientVersion || null,
+      sessionId: info.sessionId || null,
       lastSeen: serverTimestamp(),
       expiresAt: Timestamp.fromMillis(Date.now() + AGENT_TTL_MS),
     };

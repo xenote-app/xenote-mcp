@@ -52,12 +52,15 @@ Per-user (NOT nested per-agent — one listener, merged timeline, survives
 entry expiry), tagged `agentId`. Fields: `type`, `agentId`, payload,
 `createdAt`, `expiresAt` (TTL).
 
-- **Vocabulary — past-tense narrative beats**, not tool-call churn:
-  started working, created article, edited files, ran element (outcome),
-  published, error. Routine fetch/get churn stays on the agent entry
-  (`toolName`/`path`), not in the feed.
-- **Coalescing** ("edited app.jsx ×3"): write every event, coalesce at
-  render. (Revisit if volume ever matters; TTL caps growth.)
+- **Every activity is logged.** Typed events carry rich payloads
+  (connected, articleCreated, fileEdit + filename, published, error);
+  every other successful tool call lands as a generic
+  `toolCall { tool, path }` (suppressed when the same call emitted a typed
+  event, so nothing double-logs). The agent entry still carries the
+  present-tense focus; the feed is the complete past.
+- **Coalescing** ("edited app.jsx ×3", "viewed /demo ×5"): write every
+  event, coalesce consecutive same-activity runs at render. (Revisit if
+  volume ever matters; TTL caps growth.)
 - **Significant events** (drive unread dot + bubble): new agent connected,
   published, error, detached.
 - **Remove the lease-renewal side effect** — events say nothing about tab

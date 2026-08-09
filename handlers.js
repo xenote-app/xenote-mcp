@@ -64,8 +64,11 @@ async function browserAttachmentStatus(ctx) {
   };
 }
 
-// Fire-and-forget feed event tagged with this agent's id.
+// Fire-and-forget feed event tagged with this agent's id. Marks the current
+// call as having produced a specific event, so the generic per-call logger
+// in mcp-server.js skips it (every activity is logged exactly once).
 function logAgentEvent(ctx, event) {
+  ctx._specificEventLogged = true;
   ctx
     .getAgentId()
     .then(function (agentId) {

@@ -93,22 +93,25 @@ function createMCPServer(sessionCtx) {
   // session of the same client (see provider.resolveAgent) or creates a new
   // one — in which case the feed gets its "connected" event.
   var agentIdPromise = null;
+  function agentInfo() {
+    var clientVersion = server.getClientVersion();
+    return {
+      token: sessionCtx.token || null,
+      sessionId: (sessionCtx.getSessionId && sessionCtx.getSessionId()) || null,
+      clientName: clientVersion ? clientVersion.name : null,
+      clientVersion: clientVersion ? clientVersion.version : null,
+    };
+  }
   function getAgentId() {
     if (!agentIdPromise) {
       agentIdPromise = (async function () {
-        var clientVersion = server.getClientVersion();
-        var resolved = await provider.resolveAgent(sessionCtx.uid, {
-          token: sessionCtx.token || null,
-          sessionId: (sessionCtx.getSessionId && sessionCtx.getSessionId()) || null,
-          clientName: clientVersion ? clientVersion.name : null,
-          clientVersion: clientVersion ? clientVersion.version : null,
-        });
+        var resolved = await provider.resolveAgent(sessionCtx.uid, agentInfo());
         if (resolved.isNew) {
           provider
             .logEvent(sessionCtx.uid, {
               type: "connected",
               agentId: resolved.agentId,
-              clientName: clientVersion ? clientVersion.name : null,
+              clientName: agentInfo().clientName,
             })
             .catch(function () {});
         }
@@ -160,12 +163,28 @@ function createMCPServer(sessionCtx) {
       .then(function (agentId) {
         var update = { toolName: name };
         if (focusPath) update.path = focusPath;
-        return provider.updateAgentPresence(ctx.uid, agentId, update);
+        return provider.updateAgentPresence(ctx.uid, agentId, agentInfo(), update);
       })
       .catch(function () {});
 
     try {
+      // Every activity is logged. Handlers that emit a richer typed event
+      // (fileEdit, published, articleCreated) set _specificEventLogged via
+      // logAgentEvent; every other successful call gets a generic entry.
+      ctx._specificEventLogged = false;
       var result = await handler(args, ctx);
+      if (!ctx._specificEventLogged) {
+        getAgentId()
+          .then(function (agentId) {
+            return provider.logEvent(ctx.uid, {
+              type: "toolCall",
+              agentId: agentId,
+              tool: name,
+              path: focusPath,
+            });
+          })
+          .catch(function () {});
+      }
       return {
         content: [
           {
