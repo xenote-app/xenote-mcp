@@ -2287,16 +2287,25 @@ async function element_run(args, ctx) {
 
   // Create run request and wait for browser to execute. Tagged with the
   // agent and its paired tab so only that tab picks it up.
-  var requestId = await ctx.provider.createRunRequest(ctx.uid, {
+  var requestData = {
     articlePath: articlePath,
     elementId: elementId,
     elementType: element.type,
     agentId: agentId,
     targetTabId: attachment.tabId,
-  });
+  };
+  if (args.eval !== undefined) {
+    if (typeof args.eval !== "string")
+      throw new Error("'eval' must be a string JS expression");
+    requestData.evalExpr = args.eval;
+  }
+  if (args.reload !== undefined) requestData.reload = !!args.reload;
+  var requestId = await ctx.provider.createRunRequest(ctx.uid, requestData);
 
   try {
-    var result = await ctx.provider.waitForRunResult(ctx.uid, requestId, 10000);
+    // The browser waits for a real outcome (build settled / build error /
+    // 8s still-loading cap) before responding; allow for navigation on top.
+    var result = await ctx.provider.waitForRunResult(ctx.uid, requestId, 20000);
     // Clean up
     ctx.provider.deleteRunRequest(ctx.uid, requestId).catch(function () {});
 

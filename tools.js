@@ -586,9 +586,11 @@ var tools = [
   {
     name: "element_run",
     description:
-      "Run a runner element (web-runner, box-runner, or kernel-runner) in the attached browser tab. " +
-      "Requires a browser tab to be attached via the presence indicator. " +
-      "Returns the execution result or times out after 10 seconds.",
+      "Run a runner element in the user's attached browser tab (requires attachment — the switch on " +
+      "the agent's presence panel; navigates the tab to the article). Web-runner: waits for the build " +
+      "(~8s max), returns status ('settled' | 'error' | 'still-loading'), errorMessage, consoleErrors, " +
+      "logs, and rendered (body text + DOM stats). Runtime errors don't fail builds — check " +
+      "consoleErrors/logs even when settled. Empty rendered.text + low elementCount = blank render.",
     annotations: {
       title: "Run Element",
       destructiveHint: false,
@@ -599,6 +601,21 @@ var tools = [
       properties: {
         articlePath: ARTICLE_PATH_PROP.articlePath,
         id: { type: "string", description: "Element ID of the runner to execute" },
+        eval: {
+          type: "string",
+          description:
+            "Web-runner only. JS expression evaluated in the app's iframe after it settles — probe " +
+            "your own app. Returns eval.value or eval.error, capped at 2KB (truncation marked). " +
+            "Query narrowly: \"document.querySelectorAll('.card').length\", \"window.app?.state.score\", " +
+            "\"document.querySelector('#chart')?.outerHTML\"",
+        },
+        reload: {
+          type: "boolean",
+          description:
+            "Web-runner only, default true (rebuild and rerun fresh). Pass false to keep the running " +
+            "instance — state survives, so eval can interact (click, set values) and later calls " +
+            "observe the result.",
+        },
       },
       required: ["articlePath", "id"],
     },

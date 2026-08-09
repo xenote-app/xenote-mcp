@@ -81,11 +81,18 @@ The user is prompted before credits are spent. Models change over time, so alway
 Web runners can set the current article's complete flag — unlocks articles that require it via `requiredArticles`. Use to verify knowledge before advancing (quizzes, tests). public_fetch /core/completion for how.
 
 ## Debug Loop
-Ask the user to attach a browser tab (presence indicator). Then:
-1. `fetch` the article (navigates the browser to it)
-2. `element_run({ articlePath, id })` to execute the runner
-3. Read status, errors, and console logs from the response
-4. Fix and repeat
+Ask the user to attach their browser (the switch on the agent's presence
+panel), then loop: `element_run({ articlePath, id })` → read the result → fix.
+- `status`: "settled" (built + loaded) / "error" (build failed, see
+  errorMessage) / "still-loading" (~8s cap). Runtime errors don't fail
+  builds — check `consoleErrors` and `logs` even when settled.
+- `rendered`: body text + DOM stats. Empty text + low elementCount = blank
+  render (canvas/svg apps are legitimately text-light).
+- `eval`: probe your app precisely — e.g.
+  `eval: "document.querySelectorAll('.row').length"` (2KB cap, query narrow).
+- `reload: false`: keep the running instance instead of rebuilding — state
+  survives across calls, so eval can click/interact and the next call reads
+  what happened.
 
 ## Theming & design
 Always import the core stylesheet in your entry file. It provides reset, color system, typography wired to workspace fonts, form styling, design tokens, and automatic dark mode:
