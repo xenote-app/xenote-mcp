@@ -8,14 +8,20 @@
   model implemented (collapse persisted, dismiss rules, unread dot).
 - [x] 3. ~~Multiple agents in multiple windows~~ — per-agent entries with
   reconnect adoption, tab heartbeat docs, 1:1 agent↔tab pairing.
-- [ ] 4. Rethink and reimplement run/refresh — execution is broken. Fetch the
-  rendered output for web-runner so agents get real execution feedback,
-  return errors from run right away, and add a way to send back 'attached'.
-  Worth redesigning as a whole rather than patching.
-  The presence redesign already routes requests to the paired tab
-  (agentId + targetTabId on request docs) and needs attachment-state
-  feedback as its first requirement. Rendered output = new postMessage
-  type in notebook/public/webframe (built by build-webframe.sh).
+- [x] 4. ~~Rethink and reimplement run/refresh~~ — lean fix shipped:
+  element_run waits for real outcomes (settled/error/still-loading, 8s cap),
+  returns rendered capture (innerText + DOM stats), optional `eval` probe
+  (2KB cap), `reload: false` probe mode with per-call log deltas.
+  Deferred to a future full redesign (do when demand appears):
+  - Proper webframe protocol messages for capture/eval (currently piggybacks
+    the console eval channel — one reply in flight at a time; rebuild
+    notebook/public/webframe via build-webframe.sh)
+  - Screenshots for vision-based UI verification
+  - Status streaming (Firestore request docs as a status stream; surface as
+    MCP progress notifications if clients ever hold streams)
+  - box/kernel runners still use the old 250ms snapshot
+  - Timeout stack invariant: capture 1.5s < eval 3s < settle 8s <
+    page-load 10s < server 20s
 - [ ] 5. Granular permission scopes for MCP tokens (read-only, per-workspace).
   Separate project: enforcement lives in token → custom claims → security
   rules, not UI. Settings currently says "full access" honestly.
