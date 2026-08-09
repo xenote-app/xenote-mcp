@@ -43,15 +43,8 @@
 
 ## Post-deploy checklist for the presence redesign
 
-- Enable Firestore TTL policies on `expiresAt` for
-  `mcpPresence/*/agents` and `mcpPresence/*/tabs` (presenceLog already
-  has one).
-- Deploy: firestore.rules (presence + agent-claim denials), firestore
-  indexes (new presenceLog agentId+createdAt composite for the per-agent
-  panel log), cloud functions (registerMcpClientCall change,
-  listMcpTokensCall, revokeMcpTokenCall, mcp-claim minting + requireHuman
-  guards), the app, and the MCP server.
-- Agent-scope note: sessions signed in before the functions deploy keep
-  claim-less ID tokens until they re-auth; a Cloud Run restart of the MCP
-  server clears them. No rules/functions ordering constraint — claim-less
-  agents just aren't denied yet, humans are never affected.
+Done 2026-08-09: TTL policies active on `expiresAt` for all four
+collection groups (agents, tabs, presenceLog, mcpTokens); rules, indexes,
+functions, app, and MCP server (rev 00046) all deployed. Agent-claim
+enforcement is live — the MCP redeploy also cleared any claim-less
+pre-deploy sessions.
