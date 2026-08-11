@@ -1107,7 +1107,9 @@ async function element_patch(args, ctx) {
   });
   var originalContent = el.content || "";
   var elEdits = el.edits || 0;
-  var edits = elEdits + 1;
+  // NOT `var edits` — that would shadow the edit-operations array from args
+  // and turn every patch into a silent no-op (applyEdits over a number).
+  var newEditCount = elEdits + 1;
   var expectedEdits = args.expectedEdits;
 
   if (expectedEdits !== undefined && elEdits !== expectedEdits) {
@@ -1135,7 +1137,7 @@ async function element_patch(args, ctx) {
     domainId: domainId,
     articleId: articleId,
     elementId: id,
-    data: { content: newContent, edits: edits },
+    data: { content: newContent, edits: newEditCount },
   });
 
   if (el.type === "file" && el.settings && el.settings.filename)
@@ -1143,10 +1145,10 @@ async function element_patch(args, ctx) {
       type: "fileEdit",
       path: args.articlePath,
       filename: el.settings.filename,
-      edits: edits,
+      edits: newEditCount,
     });
 
-  var patchResult = { id: id, edits: edits };
+  var patchResult = { id: id, edits: newEditCount };
   if (el.type === "file") {
     patchResult.browser = await browserAttachmentStatus(ctx);
   }
