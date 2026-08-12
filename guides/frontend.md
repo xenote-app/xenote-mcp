@@ -39,7 +39,7 @@ import Icon from 'https://unpkg.com/lucide-react@0.356.0/dist/esm/icons/icon-nam
 ## Cross-Article Imports
 Import files from other articles that have a published version:
 import { Chart } from '/workspace-slug/article-slug/charts.js';
-- **IMPORTANT**: The source article MUST be published first (version create with isPublic: true, which is the default). Unpublished articles cannot be imported — imports will fail silently or error at runtime.
+- **IMPORTANT**: The source article MUST be published first (version create with isPublic: true, which is the default). Publishing validates every cross-article import: a broken one (missing article, missing file, unpublished source, malformed path) BLOCKS the publish, and the error names the importing file and the bad path — fix the import and retry.
 - Imports resolve against the published version snapshot, NOT the live working copy
 - If you update the source article, you must publish a new version for the changes to be importable
 - Without @version pin, resolves to the currently published version
@@ -53,6 +53,8 @@ Cross-article imports don't require version numbers during development. The Stan
 - When an article is **published**, its Dependency Version Map (DV Map) is frozen into the snapshot — locking every import to the exact version that was current at publish time
 - This works recursively: each level of the dependency tree has its own frozen DV Map
 - Two different articles (or depths) can use different versions of the same library with no conflict
+- Published snapshots resolve by internal ids, so renaming a source article never breaks articles already published against it
+- Live (unpublished) editing resolves against current slugs: after a source article is renamed, update your import paths before republishing — the publish will otherwise fail naming the dangling path
 - Result: developers never think about versions during development, but published code is fully reproducible and never breaks
 
 ## Example (Multi-File — always follow this pattern)
