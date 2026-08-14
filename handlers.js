@@ -103,26 +103,14 @@ async function fetch_handler(args, ctx) {
   if (path === "/" || path === "") {
     var userInfo = await ctx.provider.fetchUserInfo(ctx.uid);
     var userDomains = await ctx.provider.fetchUserDomains(ctx.uid);
-    var domainOrder =
-      userInfo && userInfo.domainOrder ? userInfo.domainOrder : [];
-
-    // Union: domainOrder first (preserves user-set order, includes external
-    // domains not in the subcollection), then subcollection ids not yet in
-    // domainOrder (newly created workspaces).
-    var seen = {};
-    var orderedIds = [];
-    for (var i = 0; i < domainOrder.length; i++) {
-      if (!seen[domainOrder[i]]) {
-        seen[domainOrder[i]] = true;
-        orderedIds.push(domainOrder[i]);
-      }
-    }
-    for (var n = 0; n < userDomains.length; n++) {
-      if (!seen[userDomains[n].id]) {
-        seen[userDomains[n].id] = true;
-        orderedIds.push(userDomains[n].id);
-      }
-    }
+    var orderedIds = userDomains
+      .filter(function (membership) {
+        return !membership.status || membership.status === "active";
+      })
+      .sort(function (a, b) {
+        return (a.rank || 0) - (b.rank || 0);
+      })
+      .map(function (membership) { return membership.id; });
 
     var workspaces = [];
     for (var j = 0; j < orderedIds.length; j++) {
