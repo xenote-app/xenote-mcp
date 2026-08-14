@@ -164,11 +164,17 @@ var tools = [
             'web-runner: get_guide("frontend") before use. create code+files first. React 19 is in importMap by default — additional imports are merged, not replaced. settings: { target (required, .jsx filename), importMap?, isChromeless?, layout?, height?, autoHeight? }\n' +
             'box-runner: get_guide("backend") before use. settings: { command (required, e.g. "node app.js") }\n' +
             'kernel-runner: get_guide("backend") before use. content is Python code, no parentId needed\n' +
-            "images: uses entries not content. entries: [{ filename (required — an article_upload/pulled filename, or https URL), caption? }]. settings: { galleryType?, widthMode?, aspectRatio?, alignment?, hasBorder?, fitting? ('cover'|'contain'), fillerColor? }\n" +
+            "images: uses entries not content. entries: [{ filename (required — an article_upload/pulled filename, or https URL), caption? }]. settings: { galleryType? (null|'classic'), widthMode? ('small' 400px|'medium' 600px|'full' article width), aspectRatio? ('auto'|'1.7778' 16:9|'1.5000' 3:2|'1.3333' 4:3|'1.0000' 1:1|'0.5625' 9:16), alignment? ('left'|'center'|'right'; ignored for full), hasBorder?, fitting? ('cover'|'contain'), fillerColor? }. fitting and fillerColor apply only when aspectRatio is not 'auto'.\n" +
             "iframe: settings: { embedUrl (required), widthMode?, aspectRatio?, alignment?, hasBorder? }\n" +
             "excalidraw: content is JSON.stringify of elements array. settings: { maxWidth?, percentWidth?, caption?, alignment?, hasBorder?, hasPadding?, backgroundColor? }",
         },
         content: { type: "string", description: "Initial content" },
+        entries: {
+          type: "array",
+          description:
+            "Image gallery entries: [{ filename, caption? }]. Only for images elements.",
+          items: { type: "object" },
+        },
         settings: {
           type: "object",
           description:
@@ -211,6 +217,7 @@ var tools = [
             properties: {
               type: { type: "string" },
               content: { type: "string" },
+              entries: { type: "array", items: { type: "object" } },
               settings: { type: "object" },
               parentId: { type: "string" },
               afterId: { type: "string" },
@@ -563,7 +570,7 @@ var tools = [
   {
     name: "article_upload",
     description:
-      "Upload a binary file (image, audio, 3D model...) to an article. Prefer url (server fetches it). base64 is for small files only (~500 tokens/KB, 200KB cap). With shell access, use requestUploadUrl + size for a signed PUT and curl the bytes — no tokens. Reference the filename in images entries or element settings afterward.",
+      "Upload a binary file (image, audio, 3D model...) to an article. Fetch the article first to see its active uploads; filenames must be unique, and duplicate uploads are denied. Prefer url (server fetches it). base64 is for small files only (~500 tokens/KB, 200KB cap). With shell access, use requestUploadUrl + size and follow the returned curl command — no tokens. Reference the filename in images entries or element settings afterward.",
     annotations: {
       title: "Upload File",
       destructiveHint: false,

@@ -152,6 +152,10 @@ async function fetch_handler(args, ctx) {
     domainId: domainId,
     articleId: articleId,
   });
+  var uploads = await ctx.provider.fetchArticleUploads({
+    domainId: domainId,
+    articleId: articleId,
+  });
   var layout =
     article && article.layout ? article.layout : { order: [], type: "scroll" };
   var list = buildElementSummaries(elements, layout.order || []);
@@ -174,6 +178,16 @@ async function fetch_handler(args, ctx) {
       } : null,
     },
     elements: list,
+    uploads: uploads
+      .map(function (upload) {
+        return {
+          id: upload.id,
+          filename: upload.filename,
+          contentType: upload.contentType || null,
+          size: upload.size || 0,
+        };
+      })
+      .sort(function (a, b) { return a.filename.localeCompare(b.filename); }),
   };
   // Niche flags — only surfaced when set
   if (article && article.requiredArticles && article.requiredArticles.length > 0)
@@ -642,8 +656,8 @@ var DEFAULT_SETTINGS = {
     syncFiles: true,
   },
   images: {
-    galleryType: "grid",
-    widthMode: "content",
+    galleryType: null,
+    widthMode: "medium",
     aspectRatio: null,
     alignment: "center",
     hasBorder: false,
@@ -668,6 +682,39 @@ var DEFAULT_SETTINGS = {
   },
 };
 
+var IMAGE_SETTING_VALUES = {
+  galleryType: [null, "classic"],
+  widthMode: ["small", "medium", "full"],
+  aspectRatio: ["auto", "1.7778", "1.5000", "1.3333", "1.0000", "0.5625"],
+  alignment: ["left", "center", "right"],
+  fitting: ["cover", "contain"],
+};
+
+function validateImageSettings(settings) {
+  if (!settings || typeof settings !== "object" || Array.isArray(settings))
+    throw new Error("images.settings must be an object.");
+  Object.keys(IMAGE_SETTING_VALUES).forEach(function (key) {
+    if (
+      settings[key] !== undefined &&
+      IMAGE_SETTING_VALUES[key].indexOf(settings[key]) === -1
+    )
+      throw new Error(
+        "images.settings." + key + " must be one of: " +
+          IMAGE_SETTING_VALUES[key].map(function (value) {
+            return value === null ? "null" : "'" + value + "'";
+          }).join(", ") + ".",
+      );
+  });
+  if (settings.hasBorder !== undefined && typeof settings.hasBorder !== "boolean")
+    throw new Error("images.settings.hasBorder must be a boolean.");
+  if (
+    settings.fillerColor !== undefined &&
+    settings.fillerColor !== null &&
+    typeof settings.fillerColor !== "string"
+  )
+    throw new Error("images.settings.fillerColor must be a CSS color string or null.");
+}
+
 // ── Mutation Tools ───────────────────────────────────────────────────────────
 
 async function element_create(args, ctx) {
@@ -691,8 +738,15 @@ async function element_create(args, ctx) {
   var type = args.type;
   var content = args.content;
   var settings = typeof args.settings === "string" ? JSON.parse(args.settings) : args.settings;
+  var entries = args.entries;
   var parentId = args.parentId;
   var afterId = args.afterId;
+
+  if (entries !== undefined && type !== "images")
+    throw new Error("entries is only supported for images elements.");
+  if (entries !== undefined && !Array.isArray(entries))
+    throw new Error("images entries must be an array of { filename, caption? } objects.");
+  if (type === "images" && settings !== undefined) validateImageSettings(settings);
 
   // Validate parentId for file elements
   if (type === "file" && !parentId) {
@@ -721,6 +775,7 @@ async function element_create(args, ctx) {
   var defaults = DEFAULT_SETTINGS[type] || {};
   var data = { type: type, edits: 1 };
   if (content !== undefined) data.content = content;
+  if (entries !== undefined) data.entries = entries;
   data.settings = Object.assign({}, defaults, settings || {});
   if (type === "web-runner" && settings && settings.importMap) {
     data.settings.importMap = Object.assign({}, defaultImportMap, settings.importMap);
@@ -1018,8 +1073,9 @@ async function element_update(args, ctx) {
   if (data.content !== undefined) updateData.content = data.content;
   if (data.entries !== undefined) updateData.entries = data.entries;
   if (data.settings !== undefined) {
-    var mergeSettings = typeof data.settings === "string" ? JSON.parse(data.settings) : data.settings;
-    updateData.settings = Object.assign({}, el.settings || {}, mergeSettings);
+    var settings = typeof data.settings === "string" ? JSON.parse(data.settings) : data.settings;
+    if (el.type === "images") validateImageSettings(settings);
+    updateData.settings = settings;
   }
   if (data.editorData !== undefined) updateData.editorData = data.editorData;
   if (data.parentId !== undefined) updateData.parentId = data.parentId;
@@ -2175,6 +2231,16 @@ function nextVersionSlug(latest) {
 // Base64 through the MCP transport costs ~500 tokens per KB — cap it small.
 var BASE64_MAX_BYTES = 200 * 1024;
 
+async function callUploadFunction(functions, name, data) {
+  try {
+    return await httpsCallable(functions, name)(data);
+  } catch (error) {
+    var code = String(error.code || "internal").replace(/^functions\//, "");
+    var detail = error.details || error.message || String(error);
+    throw new Error("Upload request failed (" + code + "): " + detail);
+  }
+}
+
 async function article_upload(args, ctx) {
   if (!args.articlePath) throw new Error("articlePath is required");
   if (!args.filename) throw new Error("filename is required");
@@ -2185,7 +2251,7 @@ async function article_upload(args, ctx) {
   if (args.requestUploadUrl) {
     if (!args.size)
       throw new Error("size (bytes) is required with requestUploadUrl");
-    var result = await httpsCallable(ctx.functions, "getUploadUrlCall")({
+    var result = await callUploadFunction(ctx.functions, "getUploadUrlCall", {
       domainId: pathData.domainId,
       articleId: pathData.articleId,
       filename: args.filename,
@@ -2193,10 +2259,26 @@ async function article_upload(args, ctx) {
       contentType: args.contentType,
     });
     var signed = result.data;
-    signed.tip =
-      "PUT the bytes with the same Content-Type, e.g.: curl -X PUT -H 'Content-Type: " +
-      signed.contentType + "' -T <file> '<uploadUrl>'. The upload is processed " +
-      "automatically; then reference '" + args.filename + "' in images entries or settings.";
+    var method = signed.method || "PUT";
+    if (signed.uploadMode === "multipart") {
+      var metadata = JSON.stringify({
+        name: signed.objectName,
+        contentType: signed.contentType,
+      });
+      signed.tip =
+        "Storage Emulator command (keeps the Content-Type): BOUNDARY=xenote-mcp; { " +
+        "printf '%s\\r\\n' \"--$BOUNDARY\" 'Content-Type: application/json; charset=UTF-8' '' '" +
+        metadata + "' \"--$BOUNDARY\" 'Content-Type: " + signed.contentType +
+        "' ''; cat <file>; printf '\\r\\n--%s--\\r\\n' \"$BOUNDARY\"; } | " +
+        "curl -X POST -H \"Content-Type: multipart/related; boundary=$BOUNDARY\" " +
+        "--data-binary @- '" + signed.uploadUrl + "'. The upload is processed automatically; then reference '" +
+        args.filename + "' in images entries or settings.";
+    } else {
+      signed.tip =
+        method + " the bytes with the same Content-Type, e.g.: curl -X " + method +
+        " -H 'Content-Type: " + signed.contentType + "' -T <file> '<uploadUrl>'. The upload is processed " +
+        "automatically; then reference '" + args.filename + "' in images entries or settings.";
+    }
     return signed;
   }
 
@@ -2208,7 +2290,7 @@ async function article_upload(args, ctx) {
           "+ curl if you have shell access.",
       );
   }
-  var uploadResult = await httpsCallable(ctx.functions, "uploadFromSourceCall")({
+  var uploadResult = await callUploadFunction(ctx.functions, "uploadFromSourceCall", {
     domainId: pathData.domainId,
     articleId: pathData.articleId,
     filename: args.filename,

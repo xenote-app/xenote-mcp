@@ -118,6 +118,17 @@ function createProvider(db, storage) {
     });
   }
 
+  async function fetchArticleUploads({ domainId, articleId }) {
+    var q = query(
+      collection(db, "domains", domainId, "articles", articleId, "uploads"),
+      where("deleted", "==", false),
+    );
+    var snap = await getDocs(q);
+    return snap.docs.map(function (d) {
+      return { id: d.id, ...d.data() };
+    });
+  }
+
   async function fetchElement({ domainId, articleId, elementId }) {
     var snap = await getDoc(
       doc(
@@ -524,6 +535,7 @@ function createProvider(db, storage) {
     fetchArticle: fetchArticle,
     updateArticle: _updateArticle,
     fetchArticleElements: fetchArticleElements,
+    fetchArticleUploads: fetchArticleUploads,
     fetchElement: fetchElement,
     createElement: createElement,
     updateElement: _updateElement,

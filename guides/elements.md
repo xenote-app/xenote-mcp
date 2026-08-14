@@ -55,7 +55,7 @@ Python kernel runner. See **xenote://guides/backend** for full details.
 ## images
 Image gallery.
 - entries: [{ filename (required, local filename (upload or pulled) or https URL), caption? }]
-- settings: { galleryType? (null|"classic"), widthMode? ("small"|"medium"|"full"), aspectRatio? ("auto"|"1.7778"|"1.5000"|"1.3333"|"1.0000"), alignment? ("left"|"center"|"right"), hasBorder? }
+- settings: { galleryType? (null|"classic"), widthMode? ("small" = 400px | "medium" = 600px | "full" = article width), aspectRatio? ("auto"|"1.7778" 16:9|"1.5000" 3:2|"1.3333" 4:3|"1.0000" 1:1|"0.5625" 9:16), alignment? ("left"|"center"|"right"; ignored for full), hasBorder?, fitting? ("cover"|"contain"), fillerColor? }. `fitting` and `fillerColor` apply only when `aspectRatio` is not `"auto"`.
 
 ## iframe
 Embed external content.
