@@ -44,6 +44,7 @@ var handlerMap = {
   folder: handlers.folder,
   element_run: handlers.element_run,
   article_upload: handlers.article_upload,
+  article_upload_delete: handlers.article_upload_delete,
 };
 
 // Client-agnostic tool inventory for the instructions block. Some MCP clients

@@ -118,11 +118,9 @@ function createProvider(db, storage) {
     });
   }
 
-  async function fetchArticleUploads({ domainId, articleId }) {
-    var q = query(
-      collection(db, "domains", domainId, "articles", articleId, "uploads"),
-      where("deleted", "==", false),
-    );
+  async function fetchArticleUploads({ domainId, articleId, includeDeleted }) {
+    var uploads = collection(db, "domains", domainId, "articles", articleId, "uploads");
+    var q = includeDeleted ? uploads : query(uploads, where("isDeleted", "==", false));
     var snap = await getDocs(q);
     return snap.docs.map(function (d) {
       return { id: d.id, ...d.data() };

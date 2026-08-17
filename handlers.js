@@ -2304,6 +2304,39 @@ async function article_upload(args, ctx) {
   return data;
 }
 
+async function article_upload_delete(args, ctx) {
+  if (!args.articlePath) throw new Error("articlePath is required");
+  if (!args.filename) throw new Error("filename is required");
+  var pathData = await ctx.resolve.resolvePath(args.articlePath);
+  if (pathData.type !== "article")
+    throw new Error("articlePath must point to an article");
+  var uploads = await ctx.provider.fetchArticleUploads({
+    domainId: pathData.domainId,
+    articleId: pathData.articleId,
+    includeDeleted: true,
+  });
+  var matching = uploads.filter(function (upload) {
+    return upload.filename === args.filename;
+  });
+  var upload = matching.find(function (candidate) { return !candidate.isDeleted; }) || matching[0];
+  if (!upload)
+    throw new Error("Upload '" + args.filename + "' was not found in this article.");
+  if (!args.hardDelete && upload.isDeleted)
+    return { filename: args.filename, deleted: true, hardDeleted: false, note: "Already soft-deleted." };
+  var result = await callUploadFunction(ctx.functions, "deleteArticleUploadCall", {
+    domainId: pathData.domainId,
+    articleId: pathData.articleId,
+    uploadId: upload.id,
+    hardDelete: !!args.hardDelete,
+  });
+  return {
+    filename: args.filename,
+    deleted: true,
+    hardDeleted: !!args.hardDelete,
+    result: result.data,
+  };
+}
+
 module.exports = {
   get_guide: get_guide_handler,
   fetch: fetch_handler,
@@ -2321,6 +2354,7 @@ module.exports = {
   folder: folder_handler,
   element_run: element_run,
   article_upload: article_upload,
+  article_upload_delete: article_upload_delete,
   decodeEntities: decodeEntities,
 };
 

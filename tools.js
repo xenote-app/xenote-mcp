@@ -591,6 +591,28 @@ var tools = [
     },
   },
   {
+    name: "article_upload_delete",
+    description:
+      "Remove an uploaded article file by filename. Default is a soft delete: it disappears from the draft but remains available to published versions. Set hardDelete only to permanently remove a file with no published-version references; the server refuses unsafe hard deletes.",
+    annotations: {
+      title: "Delete Uploaded File",
+      destructiveHint: true,
+      openWorldHint: false,
+    },
+    inputSchema: {
+      type: "object",
+      properties: {
+        articlePath: ARTICLE_PATH_PROP.articlePath,
+        filename: { type: "string", description: "Uploaded filename to delete" },
+        hardDelete: {
+          type: "boolean",
+          description: "Permanently delete the bytes and record. Refused if a published version uses the file.",
+        },
+      },
+      required: ["articlePath", "filename"],
+    },
+  },
+  {
     name: "element_run",
     description:
       "Run a runner element in the user's attached browser tab (requires attachment — the switch on " +
