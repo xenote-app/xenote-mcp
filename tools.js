@@ -47,7 +47,7 @@ var tools = [
   {
     name: "fetch",
     description:
-      "Read your live workspaces, folders, and articles by path — start here to see what exists. '/' lists workspaces, '/workspace' lists folder contents, '/workspace/article' returns article metadata + element summaries. Articles include an editorUrl — share it with the user so they can view the article.",
+      "Read your live workspaces, folders, and articles by path — start here to see what exists. '/' lists workspaces, '/workspace' lists folder contents, '/workspace/article' returns article metadata + element summaries, a saved-version edit baseline, and changed draft elements when available. Articles include an editorUrl — share it with the user so they can view the article.",
     annotations: {
       title: "Fetch Content",
       readOnlyHint: true,

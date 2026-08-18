@@ -39,7 +39,16 @@ Articles have a **live working copy** (what you edit) and frozen **version snaps
 2. Now accessible at /workspace-slug/article-slug
 3. Other articles can import: import { X } from '/workspace-slug/article-slug/file.js'
 
-**Knowing what's saved:** fetch on a versioned article reports `versions: { published, latest }` (slugs) and `draftEdits` — live edits not yet in any version (absent when clean). If draftEdits is large or published lags latest, suggest versioning/publishing to the user.
+**Knowing what's saved:** fetch on a versioned article reports `versions: { published, latest, lastVersionedAt }` and this baseline:
+
+```js
+versionBaseline: {
+  versionId: "saved-version-id",
+  elementEdits: { "full-element-id": 12 }
+}
+```
+
+`elementEdits` is the full element-ID → edit-count map from that saved version; IDs are never shortened. Compare it to live `elements[].edits` when you need exact edit deltas. When the live draft differs, `draftChanges: { sinceVersionId, elements }` is also provided as a convenient added/modified/removed summary. This is intentionally element-level; article title and layout changes are not included.
 
 **Other version actions:**
 - version({ action: "list" }) — see all versions of the current article

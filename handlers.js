@@ -198,16 +198,27 @@ async function fetch_handler(args, ctx) {
       published: article.publishedVersionSlug || null,
       latest: article.latestVersion,
     };
-    // Live edits (incl. deleted history) beyond the last version snapshot.
-    if (article.lastSavedEdits !== undefined) {
-      var liveEdits = elements.reduce(function (sum, el) {
-        return sum + (el.edits || 0);
-      }, 0);
-      var draftEdits = Math.max(
-        0,
-        liveEdits + (article.deletedEdits || 0) - article.lastSavedEdits,
+    var lastVersionedAt = formatTimestamp(article.lastVersionedAt);
+    if (lastVersionedAt) result.versions.lastVersionedAt = lastVersionedAt;
+
+    // The version save stores an element-id → edit-count baseline, so MCP can
+    // identify the affected elements without reading the saved snapshot.
+    if (article.lastSavedElementEdits) {
+      result.versionBaseline = {
+        versionId: article.lastSavedVersionId || null,
+        elementEdits: article.lastSavedElementEdits,
+      };
+      var draftChanges = buildDraftElementChanges(
+        elements,
+        list,
+        article.lastSavedElementEdits,
       );
-      if (draftEdits > 0) result.draftEdits = draftEdits;
+      if (draftChanges.length > 0) {
+        result.draftChanges = {
+          sinceVersionId: article.lastSavedVersionId || null,
+          elements: draftChanges,
+        };
+      }
     }
   }
   return result;
@@ -2102,6 +2113,62 @@ function buildElementSummaries(elements, order) {
     }
   }
   return list;
+}
+
+// Compare the live elements to the compact baseline written by version create.
+// Element summaries keep the response useful without returning full content;
+// removed elements have only their id because the baseline deliberately does
+// not duplicate snapshot data.
+function buildDraftElementChanges(elements, summaries, savedEdits) {
+  var liveById = {};
+  var seen = {};
+  var changes = [];
+
+  elements.forEach(function (element) {
+    liveById[element.id] = element;
+  });
+
+  function statusFor(element) {
+    if (!Object.prototype.hasOwnProperty.call(savedEdits, element.id))
+      return "added";
+    return savedEdits[element.id] !== (element.edits || 0)
+      ? "modified"
+      : null;
+  }
+
+  summaries.forEach(function (summary) {
+    var element = liveById[summary.id];
+    if (!element) return;
+    seen[summary.id] = true;
+    var status = statusFor(element);
+    if (status) changes.push(Object.assign({ status: status }, summary));
+  });
+
+  // Keep newly-created but not-yet-laid-out elements visible to the agent too.
+  elements.forEach(function (element) {
+    if (seen[element.id]) return;
+    var status = statusFor(element);
+    if (status)
+      changes.push(Object.assign(
+        { status: status },
+        summarizeElement(element, null),
+      ));
+  });
+
+  Object.keys(savedEdits).forEach(function (id) {
+    if (!liveById[id]) changes.push({ id: id, status: "removed" });
+  });
+
+  return changes;
+}
+
+function formatTimestamp(value) {
+  if (!value) return null;
+  if (typeof value.toDate === "function") return value.toDate().toISOString();
+  if (typeof value.seconds === "number")
+    return new Date(value.seconds * 1000).toISOString();
+  if (value instanceof Date) return value.toISOString();
+  return typeof value === "string" ? value : null;
 }
 
 // Cap returned content size with line-based paging. Always returns at least
