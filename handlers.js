@@ -54,13 +54,12 @@ function expandTypographyPreset(presetId) {
 }
 
 async function browserAttachmentStatus(ctx) {
-  var agentId = await ctx.getAgentId();
-  var attached = !!(await ctx.provider.getAgentAttachment(ctx.uid, agentId));
+  var attached = !!(await ctx.provider.getBrowserAttachment(ctx.uid));
   return {
     attached: attached,
     message: attached
-      ? "An attached browser tab will receive this file update."
-      : "No browser tab is attached to this agent; the update was saved but not delivered to a browser.",
+      ? "A shared browser tab is attached. Use element_run to open and run this article there."
+      : "No browser tab is attached; the update was saved.",
   };
 }
 
@@ -1106,6 +1105,7 @@ async function element_update(args, ctx) {
   )
     logAgentEvent(ctx, {
       type: "fileEdit",
+      elementId: id,
       path: args.articlePath,
       filename: el.settings.filename,
       edits: edits,
@@ -1198,6 +1198,7 @@ async function element_patch(args, ctx) {
   if (el.type === "file" && el.settings && el.settings.filename)
     logAgentEvent(ctx, {
       type: "fileEdit",
+      elementId: id,
       path: args.articlePath,
       filename: el.settings.filename,
       edits: newEditCount,
@@ -2431,12 +2432,12 @@ async function element_run(args, ctx) {
   if (!articlePath) throw new Error("articlePath is required");
   if (!elementId) throw new Error("id is required");
 
-  // Check that this agent has a live paired tab — the stage runs execute on.
+  // Every authorized agent uses the account's shared browser attachment.
   var agentId = await ctx.getAgentId();
-  var attachment = await ctx.provider.getAgentAttachment(ctx.uid, agentId);
+  var attachment = await ctx.provider.getBrowserAttachment(ctx.uid);
   if (!attachment) {
     throw new Error(
-      "No browser tab is attached to this agent. Ask the user to open Xenote and click Attach on this agent's presence entry.",
+      "No shared browser tab is attached. Ask the user to open Xenote and click Attach this browser in the presence panel.",
     );
   }
 
@@ -2459,13 +2460,14 @@ async function element_run(args, ctx) {
   }
 
   // Create run request and wait for browser to execute. Tagged with the
-  // agent and its paired tab so only that tab picks it up.
+  // originating agent and attachment generation so only that tab picks it up.
   var requestData = {
     articlePath: articlePath,
     elementId: elementId,
     elementType: element.type,
     agentId: agentId,
     targetTabId: attachment.tabId,
+    attachmentId: attachment.attachmentId,
   };
   if (args.eval !== undefined) {
     if (typeof args.eval !== "string")
@@ -2476,9 +2478,9 @@ async function element_run(args, ctx) {
   var requestId = await ctx.provider.createRunRequest(ctx.uid, requestData);
 
   try {
-    // The browser waits for a real outcome (build settled / build error /
-    // 8s still-loading cap) before responding; allow for navigation on top.
-    var result = await ctx.provider.waitForRunResult(ctx.uid, requestId, 20000);
+    // Allow queueing behind other agents. Each request expires after 120s;
+    // the browser enforces that deadline before starting any execution.
+    var result = await ctx.provider.waitForRunResult(ctx.uid, requestId, 125000);
     // Clean up
     ctx.provider.deleteRunRequest(ctx.uid, requestId).catch(function () {});
 

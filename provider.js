@@ -331,10 +331,8 @@ function createProvider(db, storage) {
 
   // ── Presence ───────────────────────────────────────────────────────────
   //
-  // Per-agent model (see presence-redesign.md): one doc per live agent under
-  // mcpPresence/{uid}/agents, one heartbeat doc per browser tab under
-  // mcpPresence/{uid}/tabs. Attachment is a 1:1 pairing — attachedTabId on
-  // the agent entry, tab liveness from the tab doc's heartbeat.
+  // Agent identities remain independent. attachments/browser holds the
+  // account's one shared browser tab and its human-owned heartbeat.
 
   var ATTACH_LEASE_MS = 90 * 1000;
   var AGENT_TTL_MS = 24 * 60 * 60 * 1000;
@@ -403,7 +401,6 @@ function createProvider(db, storage) {
       sessionId: info.sessionId,
       toolName: null,
       path: null,
-      attachedTabId: null,
       lastSeen: serverTimestamp(),
       createdAt: serverTimestamp(),
       expiresAt: Timestamp.fromMillis(Date.now() + AGENT_TTL_MS),
@@ -426,32 +423,17 @@ function createProvider(db, storage) {
     };
     if (data.toolName !== undefined) update.toolName = data.toolName;
     if (data.path !== undefined) update.path = data.path;
-    // merge: the browser co-writes attachedTabId into this doc.
+    // Preserve identity and creation metadata when updating activity.
     await setDoc(agentRef(uid, agentId), update, { merge: true });
   }
 
-  // The agent's paired tab, if that tab's heartbeat is alive. Lazily clears
-  // a pairing whose tab died without running pagehide cleanup — inside a
-  // transaction, so a newly attached tab is never detached by a stale check.
-  async function getAgentAttachment(uid, agentId) {
-    var snap = await getDoc(agentRef(uid, agentId));
-    if (!snap.exists()) return null;
-    var tabId = snap.data().attachedTabId;
-    if (!tabId) return null;
-
-    var tabSnap = await getDoc(doc(db, "mcpPresence", uid, "tabs", tabId));
-    var tab = tabSnap.exists() ? tabSnap.data() : null;
-    var lastSeenMs =
-      tab && tab.lastSeen && tab.lastSeen.toMillis ? tab.lastSeen.toMillis() : 0;
-    if (Date.now() - lastSeenMs < ATTACH_LEASE_MS) return { tabId: tabId };
-
-    await runTransaction(db, async function (transaction) {
-      var current = await transaction.get(agentRef(uid, agentId));
-      if (current.exists() && current.data().attachedTabId === tabId) {
-        transaction.update(agentRef(uid, agentId), { attachedTabId: null });
-      }
-    });
-    return null;
+  // One browser tab per account, explicitly attached by the human user.
+  async function getBrowserAttachment(uid) {
+    var snap = await getDoc(doc(db, "mcpPresence", uid, "attachments", "browser"));
+    var attachment = snap.exists() ? snap.data() : null;
+    var lastSeen = attachment?.lastSeen?.toMillis() || 0;
+    if (!attachment?.tabId || !attachment?.attachmentId || Date.now() - lastSeen >= ATTACH_LEASE_MS) return null;
+    return { tabId: attachment.tabId, attachmentId: attachment.attachmentId };
   }
 
   // Append-only event stream: one doc per event under
@@ -478,6 +460,7 @@ function createProvider(db, storage) {
       ...data,
       status: "pending",
       createdAt: serverTimestamp(),
+      expiresAt: Timestamp.fromMillis(Date.now() + 120000),
     });
     return requestId;
   }
@@ -493,7 +476,7 @@ function createProvider(db, storage) {
         doc(db, "mcpPresence", uid, "requests", requestId),
         function (snap) {
           var data = snap.data();
-          if (!data || data.status === "pending") return;
+          if (!data || data.status === "pending" || data.status === "running") return;
           clearTimeout(timer);
           unsubscribe();
           resolve(data);
@@ -536,7 +519,7 @@ function createProvider(db, storage) {
     fetchUserDomains: fetchUserDomains,
     resolveAgent: resolveAgent,
     updateAgentPresence: updateAgentPresence,
-    getAgentAttachment: getAgentAttachment,
+    getBrowserAttachment: getBrowserAttachment,
     logEvent: logEvent,
     createRunRequest: createRunRequest,
     waitForRunResult: waitForRunResult,

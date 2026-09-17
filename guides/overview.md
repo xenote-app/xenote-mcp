@@ -67,10 +67,10 @@ Articles can be locked until prerequisite articles are completed. Set `requiredA
 - public_fetch mirrors this for anyone's published articles: summaries at the article path, then public_fetch with elementId for full content
 
 ## Running Code
-When a browser tab is attached (via the presence indicator), fetching an article navigates the browser to it. Use element_run to execute a runner and get back status, errors, and console logs.
+One browser tab is shared by all authorized agents on the account. Attach it via the presence indicator. File reads do not navigate the browser. Browser execution requests queue and navigate when their turn starts; requests expire after two minutes. Detaching disconnects all agents. Separate calls can interleave, so do not assume exclusive browser state between calls.
 
-1. fetch the article first (this navigates the browser)
-2. element_run({ articlePath, id }) to execute the runner
+1. fetch the article to find its runner
+2. element_run({ articlePath, id }) to navigate the shared tab and execute the runner
 
 element_run returns { status, errorMessage, logs }. Use this to verify runners work without needing visual confirmation.
 

@@ -182,6 +182,10 @@ function createMCPServer(sessionCtx) {
               agentId: agentId,
               tool: name,
               path: focusPath,
+              elementId: name === "elements_create"
+                ? result?.created?.at(-1)?.id || null
+                : ["element_create", "element_update", "element_patch", "element_move"].includes(name)
+                  ? result?.id || args.id || null : null,
             });
           })
           .catch(function () {});

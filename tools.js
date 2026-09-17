@@ -615,8 +615,10 @@ var tools = [
   {
     name: "element_run",
     description:
-      "Run a runner element in the user's attached browser tab (requires attachment — the switch on " +
-      "the agent's presence panel; navigates the tab to the article). Web-runner: waits for the build " +
+      "Run a runner element in the user's shared browser tab (attach via the presence panel). " +
+      "All authorized agents share the tab; requests queue and navigate only when executing. " +
+      "Calls can wait up to two minutes. Separate calls can interleave with other agents; " +
+      "do not assume exclusive browser state between calls. Web-runner: waits for the build " +
       "(~8s max), returns status ('settled' | 'error' | 'still-loading'), errorMessage, consoleErrors, " +
       "logs, and rendered (body text + DOM stats). Runtime errors don't fail builds — check " +
       "consoleErrors/logs even when settled. Empty rendered.text + low elementCount = blank render.",

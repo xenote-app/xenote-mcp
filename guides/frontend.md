@@ -83,8 +83,8 @@ The user is prompted before credits are spent. Models change over time, so alway
 Web runners can set the current article's complete flag — unlocks articles that require it via `requiredArticles`. Use to verify knowledge before advancing (quizzes, tests). public_fetch /core/completion for how.
 
 ## Debug Loop
-Ask the user to attach their browser (the switch on the agent's presence
-panel), then loop: `element_run({ articlePath, id })` → read the result → fix.
+Ask the user to attach their browser using the presence panel. The tab is shared
+by authorized agents and browser requests queue. Then loop: `element_run({ articlePath, id })` → read the result → fix.
 - `status`: "settled" (built + loaded) / "error" (build failed, see
   errorMessage) / "still-loading" (~8s cap). Runtime errors don't fail
   builds — check `consoleErrors` and `logs` even when settled.
