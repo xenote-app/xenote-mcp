@@ -33,15 +33,15 @@ Container for file children — don't put code in content. See **xenote://guides
 - layout: default to "collapsed" — shows the file list, expands to a full IDE on click. Use "" only when the code itself is part of the contextual reading (the prose walks through this code). Not a file-size decision.
 
 ## file
-A file attached to a code or runner element. See **xenote://guides/code-and-files** for full details.
+A text/script file attached to a code or runner element (media goes through article_upload). See **xenote://guides/code-and-files** for full details.
 - Requires parentId pointing to a code or box-runner element
 - content: string (file contents)
-- settings: { filename (required), isPulled?, isBase64?, contentType? }
+- settings: { filename (required), isBase64?, contentType?, isPulled? (box-runner outputs only) }
 
 ## web-runner
 Browser-based runner for React/JS. See **xenote://guides/frontend** for full details.
 - Create code + file elements first, then the runner targeting a .jsx file
-- settings: { target (required, .jsx filename), importMap?, isChromeless?, autoHeight?, height?, layout? }
+- settings: { target (required, .jsx filename), importMap?, isChromeless?, autoHeight?, height?, layout? ("dynamic" | "fixed" | "stage") }
 
 ## box-runner
 Server-side runner (Node, Python, etc). See **xenote://guides/backend** for full details.

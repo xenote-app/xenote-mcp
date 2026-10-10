@@ -13,6 +13,7 @@ Create this FIRST before adding any files.
 A code element starts empty — add file elements inside it.
 
 ## file element — source files inside a code container
+Holds text and source files; media is uploaded with article_upload.
 - type: "file"
 - parentId: REQUIRED — must be the ID of a code element (or box-runner)
 - settings.filename: REQUIRED — e.g. "app.jsx", "styles.css", "main.py"

@@ -12,10 +12,14 @@ Web runner renders React components in an iframe. No backend needed.
 - importMap?: { "package": "https://esm.sh/package" } — for external dependencies
 - isChromeless?: strips UI chrome (toolbar, console) — output blends into the document
 - autorun?: auto-run on published page (default true)
+- layout?: "dynamic" (default) | "fixed" | "stage"
 
 ### Height
 - autoHeight: true → runner expands to fit content (recommended for most cases)
 - height: pixel height, used as starting/fixed height when autoHeight is false (default 320)
+
+### layout: "stage"
+For games and full-attention tools — not widgets in prose. A fixed 1024×650 frame on desktop, full screen on mobile; readers snap to it. It's nuanced: public_fetch("/references/webrunner-stage-layout") before using it.
 
 ## Rules
 - Target file must be .jsx with a default-exported React component
@@ -27,7 +31,7 @@ Web runner renders React components in an iframe. No backend needed.
 - Cannot use .html files — web-runner is React-only
 
 ## Working widths ("scroll" layout)
-Desktop content width for runners/code/iframes: ~960px on "wide" pages, ~704px on "normal". Prose text is capped at 640px regardless. 32px vertical gap between elements. Mobile is viewport-bound (24px side padding) — design responsively.
+Desktop content width for runners/code/iframes: ~976px on "wide" pages, ~704px on "normal". Prose text is capped at 640px regardless. 32px vertical gap between elements. Mobile is viewport-bound (24px side padding) — design responsively.
 
 ## Import Map
 Add external dependencies the runner doesn't include by default:
@@ -122,7 +126,7 @@ Size the canvas from its container (`canvasRef.current.parentElement.clientWidth
 
 **Signaling interactivity:** `isChromeless` blends the runner into prose, so readers can't tell it's interactive. Use a `warm.css`/`cool.css` tint, visible controls, or `cursor: pointer`/`grab`. Reserve a transparent background for purely decorative content.
 
-**Structure:** prose belongs in text elements, never in a runner — if you're writing a `<p>` inside a component, move it to a text element. A typical article alternates `[text]` concept → `[web-runner]` app, with each runner's `[code]` element collapsed at the bottom of the article. Prose is auto-capped at 80ch; runners span the full column width. Page width is set per article (`normal` 52rem default, `wide` 64rem) via `folder`/`article_update`.
+**Structure:** prose belongs in text elements, never in a runner — if you're writing a `<p>` inside a component, move it to a text element. A typical article alternates `[text]` concept → `[web-runner]` app, with each runner's `[code]` element collapsed at the bottom of the article. Prose is auto-capped at 80ch; runners span the full column width. Page width is set per article (`normal` 47rem, `wide` 64rem default) via `folder`/`article_update`.
 
 ### Design checklist
 - [ ] `import '/core/style/base.css'` in the entry file

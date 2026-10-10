@@ -28,7 +28,7 @@ Runs any shell command. Any language, any tool.
 3. Create box-runner: element_create({ type: "box-runner", settings: { command: "node app.js" } })
 
 ### File Pulling
-File elements with isPulled: true are fetched back from the backend after execution:
+File elements with isPulled: true under a box-runner are fetched back from the machine after execution. Create them without content — it comes from the run and can't be edited:
 element_create({ type: "file", parentId: "box-id", settings: { filename: "output.csv", isPulled: true } })
 
 ### Interactive Mode

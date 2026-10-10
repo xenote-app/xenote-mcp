@@ -160,8 +160,8 @@ var tools = [
             "Element type. Per-type requirements:\n" +
             'text: content is HTML (<p>, <h2>, <strong>, <table>, <math>, etc), not markdown; a few paragraphs per element. Don\'t add a title — the article title is already displayed. settings: { alignment?, columns?, css?, spellCheck? }\n' +
             'code: get_guide("code-and-files") before use. container for file children — don\'t put code in content. settings: { layout: "collapsed" (default — file list, expands on click) | "" (only when the code is part of the contextual reading), isReadOnly: false (editable) | true (read-only) | "hidden" (invisible to readers — use when the page is an app/experience and the code is just plumbing), title? (recommended group label) }\n' +
-            'file: get_guide("code-and-files") before use. requires parentId (code element ID) and settings: { filename (required — unique across the whole article, not per container; imports resolve by bare filename), isPulled? }\n' +
-            'web-runner: get_guide("frontend") before use. create code+files first. React 19 is in importMap by default — additional imports are merged, not replaced. settings: { target (required, .jsx filename), importMap?, isChromeless?, layout?, height?, autoHeight? }\n' +
+            'file: get_guide("code-and-files") before use. text/script source only — images and other media go through article_upload. requires parentId (code element ID) and settings: { filename (required — unique across the whole article, not per container; imports resolve by bare filename), isPulled? (box-runner outputs only, no content) }\n' +
+            'web-runner: get_guide("frontend") before use. create code+files first. React 19 is in importMap by default — additional imports are merged, not replaced. settings: { target (required, .jsx filename), importMap?, isChromeless?, layout? ("dynamic" | "fixed" | "stage" — stage is for games/tools, not widgets in prose; public_fetch("/references/webrunner-stage-layout") before using it), height?, autoHeight? }\n' +
             'box-runner: get_guide("backend") before use. settings: { command (required, e.g. "node app.js") }\n' +
             'kernel-runner: get_guide("backend") before use. content is Python code, no parentId needed\n' +
             "images: uses entries not content. entries: [{ filename (required — an article_upload/pulled filename, or https URL), caption? }]. settings: { galleryType? (null|'classic'), widthMode? ('small' 400px|'medium' 600px|'full' article width), aspectRatio? ('auto'|'1.7778' 16:9|'1.5000' 3:2|'1.3333' 4:3|'1.0000' 1:1|'0.5625' 9:16), alignment? ('left'|'center'|'right'; ignored for full), hasBorder?, fitting? ('cover'|'contain'), fillerColor? }. fitting and fillerColor apply only when aspectRatio is not 'auto'.\n" +
@@ -389,7 +389,7 @@ var tools = [
         pageWidth: {
           type: "string",
           enum: ["normal", "wide"],
-          description: "Article page width, scroll layout only. wide (~960px usable): visual/interactive content. normal (~704px): prose-led reading. Prose text caps at 640px on both.",
+          description: "Article page width, scroll layout only. wide (~976px usable): visual/interactive content. normal (~704px): prose-led reading. Prose text caps at 640px on both.",
         },
         hideTitle: {
           type: "boolean",
@@ -535,7 +535,7 @@ var tools = [
           type: "string",
           enum: ["normal", "wide"],
           description:
-            "For createArticle, scroll layout only. Default wide (~960px usable); use normal (~704px) for prose-led reading. Prose text caps at 640px on both.",
+            "For createArticle, scroll layout only. Default wide (~976px usable); use normal (~704px) for prose-led reading. Prose text caps at 640px on both.",
         },
         articleId: { type: "string" },
         folderId: { type: "string" },
@@ -570,7 +570,7 @@ var tools = [
   {
     name: "article_upload",
     description:
-      "Upload a binary file (image, audio, 3D model...) to an article. Fetch the article first to see its active uploads; filenames must be unique, and duplicate uploads are denied. Prefer url (server fetches it). base64 is for small files only (~500 tokens/KB, 200KB cap). With shell access, use requestUploadUrl + size and follow the returned curl command — no tokens. Reference the filename in images entries or element settings afterward.",
+      "Upload a binary file (image, audio, 3D model...) to an article. Fetch the article first to see its active uploads; filenames must be unique, and duplicate uploads are denied. Optimize images first (resize to display size, compress; WebP/JPEG for photos). Prefer url (server fetches it). base64 is for small files only (~500 tokens/KB, 200KB cap). With shell access, use requestUploadUrl + size and follow the returned curl command — no tokens. Reference the filename in images entries or element settings afterward.",
     annotations: {
       title: "Upload File",
       destructiveHint: false,

@@ -647,7 +647,6 @@ var DEFAULT_SETTINGS = {
     useSystemStyles: true,
     isChromeless: false,
     autorun: true,
-    allowFullscreen: false,
   },
   "box-runner": {
     command: "",
@@ -725,6 +724,43 @@ function validateImageSettings(settings) {
     throw new Error("images.settings.fillerColor must be a CSS color string or null.");
 }
 
+var WEB_RUNNER_LAYOUTS = ["dynamic", "fixed", "stage"];
+
+function validateWebRunnerSettings(settings) {
+  if (
+    settings && settings.layout !== undefined &&
+    WEB_RUNNER_LAYOUTS.indexOf(settings.layout) === -1
+  )
+    throw new Error(
+      "web-runner settings.layout must be one of: '" + WEB_RUNNER_LAYOUTS.join("', '") + "'.",
+    );
+}
+
+var MEDIA_FILE_RE = /\.(png|jpe?g|gif|webp|avif|bmp|ico|tiff?|heic|mp3|wav|ogg|m4a|flac|aac|mp4|webm|mov|avi|mkv|pdf|zip|glb|woff2?|ttf|otf|wasm)$/i;
+
+// Media belongs in article_upload. Pulled box-runner outputs and widget-saved
+// files (children of a web-runner) are the exceptions.
+function validateFileType(filename, parentType, isPulled) {
+  if (!MEDIA_FILE_RE.test(filename || "")) return;
+  if (isPulled || parentType === "web-runner") return;
+  throw new Error(
+    "'" + filename + "' is a media/binary file — file elements are for text and script files. " +
+      "Use article_upload instead, then reference the filename in images entries or settings.",
+  );
+}
+
+var PULLED_CONTENT_ERROR =
+  "This is a pulled file — its content comes from the machine after a box-runner run and can't be edited.";
+
+var FILE_LINE_LIMIT = 150;
+
+function fileSizeWarning(content) {
+  var lineCount = (content || "").split("\n").length;
+  if (lineCount <= FILE_LINE_LIMIT) return null;
+  return "Saved, but this file is " + lineCount + " lines. Break it down into multiple files " +
+    "(entry, styles, components, utils) for easier patching and readability.";
+}
+
 // ── Mutation Tools ───────────────────────────────────────────────────────────
 
 async function element_create(args, ctx) {
@@ -757,6 +793,7 @@ async function element_create(args, ctx) {
   if (entries !== undefined && !Array.isArray(entries))
     throw new Error("images entries must be an array of { filename, caption? } objects.");
   if (type === "images" && settings !== undefined) validateImageSettings(settings);
+  if (type === "web-runner") validateWebRunnerSettings(settings);
 
   // Validate parentId for file elements
   if (type === "file" && !parentId) {
@@ -794,6 +831,13 @@ async function element_create(args, ctx) {
 
   if (type === "file") {
     if (!data.settings.filename) data.settings.filename = "untitled.js";
+    if (data.settings.isPulled) {
+      if (parentEl.type !== "box-runner")
+        throw new Error("isPulled is only for files under a box-runner (outputs pulled back from the machine).");
+      if (content)
+        throw new Error("Pulled files get their content from the machine after a run — omit content.");
+    }
+    validateFileType(data.settings.filename, parentEl.type, data.settings.isPulled);
     // Check for duplicate filenames — filenames are scoped to the article, not the code element
     var existingElements = await ctx.provider.fetchArticleElements({
       domainId: domainId,
@@ -822,11 +866,8 @@ async function element_create(args, ctx) {
       parentId: parentId,
       editorUrl: "https://www.xenote.com/workspaces" + args.articlePath,
     };
-    var lineCount = (content || "").split("\n").length;
-    if (lineCount > 150) {
-      fileCreateResult.warning =
-        "This file is " + lineCount + " lines. Split large files into smaller ones (entry, styles, components, utils) for easier patching and readability.";
-    }
+    var createWarning = fileSizeWarning(content);
+    if (createWarning) fileCreateResult.warning = createWarning;
     return fileCreateResult;
   }
 
@@ -869,7 +910,7 @@ async function element_create(args, ctx) {
       "get_guide('frontend') covers importMap, cross-article imports, Gen AI API, and debug loop.",
     "box-runner":
       "Rules: Needs a connected machine (user manages from ENV panel). " +
-      "All article files sync to sandbox folder. Use isPulled: true on file elements to fetch output back. " +
+      "All article files sync to sandbox folder. Create a file under the box-runner with isPulled: true (no content) to fetch that output back. " +
       "get_guide('backend') covers machines, Vani messaging, and env vars.",
     "kernel-runner":
       "Rules: Content is Python code directly on this element — no parentId or file elements needed. " +
@@ -1080,11 +1121,27 @@ async function element_update(args, ctx) {
   }
 
   var updateData = { edits: edits };
+  if (data.content !== undefined && el.settings && el.settings.isPulled)
+    throw new Error(PULLED_CONTENT_ERROR);
   if (data.content !== undefined) updateData.content = data.content;
   if (data.entries !== undefined) updateData.entries = data.entries;
   if (data.settings !== undefined) {
     var settings = typeof data.settings === "string" ? JSON.parse(data.settings) : data.settings;
     if (el.type === "images") validateImageSettings(settings);
+    if (el.type === "web-runner") validateWebRunnerSettings(settings);
+    if (el.type === "file" && MEDIA_FILE_RE.test(settings.filename || "")) {
+      var fileParent = el.parentId ? await ctx.provider.fetchElement({
+        domainId: domainId,
+        articleId: articleId,
+        elementId: el.parentId,
+      }) : null;
+      validateFileType(settings.filename, fileParent && fileParent.type, el.settings && el.settings.isPulled);
+    }
+    if (
+      el.type === "file" && settings.isPulled !== undefined &&
+      !!settings.isPulled !== !!(el.settings && el.settings.isPulled)
+    )
+      throw new Error("isPulled is set when the file is created and can't be changed.");
     updateData.settings = settings;
   }
   if (data.editorData !== undefined) updateData.editorData = data.editorData;
@@ -1124,11 +1181,8 @@ async function element_update(args, ctx) {
   }
   if (el.type === "file" && data.content !== undefined) {
     updateResult.browser = await browserAttachmentStatus(ctx);
-    var updatedLineCount = data.content.split("\n").length;
-    if (updatedLineCount > 150) {
-      updateResult.warning =
-        "This file is now " + updatedLineCount + " lines. Consider splitting into smaller files for easier patching and readability.";
-    }
+    var updateWarning = fileSizeWarning(data.content);
+    if (updateWarning) updateResult.warning = updateWarning;
   }
   return updateResult;
 }
@@ -1177,6 +1231,8 @@ async function element_patch(args, ctx) {
     );
   }
 
+  if (el.settings && el.settings.isPulled) throw new Error(PULLED_CONTENT_ERROR);
+
   var applied = applyEdits(originalContent, edits);
   if (applied.error) {
     throw new Error(
@@ -1207,6 +1263,8 @@ async function element_patch(args, ctx) {
   var patchResult = { id: id, edits: newEditCount };
   if (el.type === "file") {
     patchResult.browser = await browserAttachmentStatus(ctx);
+    var patchWarning = fileSizeWarning(newContent);
+    if (patchWarning) patchResult.warning = patchWarning;
   }
   return patchResult;
 }
@@ -2233,6 +2291,7 @@ function summarizeElement(el, children) {
       break;
     case "web-runner":
       summary.target = el.settings ? el.settings.target : null;
+      if (el.settings && el.settings.layout === "stage") summary.layout = "stage";
       break;
     case "box-runner":
       summary.command = el.settings ? el.settings.command : null;
