@@ -763,7 +763,9 @@ function fileSizeWarning(content) {
 
 // ── Mutation Tools ───────────────────────────────────────────────────────────
 
-async function element_create(args, ctx) {
+// batchFilenames: elements_create passes one shared Set of article filenames
+// so a batch reads the elements collection once instead of once per file.
+async function element_create(args, ctx, batchFilenames) {
   if (!args.articlePath)
     throw new Error(
       "Missing required param 'articlePath'. Got params: " +
@@ -839,27 +841,19 @@ async function element_create(args, ctx) {
     }
     validateFileType(data.settings.filename, parentEl.type, data.settings.isPulled);
     // Check for duplicate filenames — filenames are scoped to the article, not the code element
-    var existingElements = await ctx.provider.fetchArticleElements({
-      domainId: domainId,
-      articleId: articleId,
-    });
-    for (var fi = 0; fi < existingElements.length; fi++) {
-      if (
-        existingElements[fi].type === "file" &&
-        existingElements[fi].settings &&
-        existingElements[fi].settings.filename === data.settings.filename
-      ) {
-        throw new Error(
-          "Duplicate filename '" + data.settings.filename + "' — filenames must be unique across the entire article, not just within a code element. " +
-            "Use distinct names like 'xor-app.jsx' and 'adder-app.jsx', or group all related files under one code element.",
-        );
-      }
+    var filenames = batchFilenames || await fetchFilenames(ctx, domainId, articleId);
+    if (filenames.has(data.settings.filename)) {
+      throw new Error(
+        "Duplicate filename '" + data.settings.filename + "' — filenames must be unique across the entire article, not just within a code element. " +
+          "Use distinct names like 'xor-app.jsx' and 'adder-app.jsx', or group all related files under one code element.",
+      );
     }
     var fileResult = await ctx.provider.createElement({
       domainId: domainId,
       articleId: articleId,
       data: data,
     });
+    if (batchFilenames) batchFilenames.add(data.settings.filename);
     var fileCreateResult = {
       id: fileResult.id,
       type: type,
@@ -966,6 +960,19 @@ function resolveBatchRef(value, created) {
   return created[idx].id;
 }
 
+async function fetchFilenames(ctx, domainId, articleId) {
+  var elements = await ctx.provider.fetchArticleElements({
+    domainId: domainId,
+    articleId: articleId,
+  });
+  var filenames = new Set();
+  for (var i = 0; i < elements.length; i++) {
+    if (elements[i].type === "file" && elements[i].settings && elements[i].settings.filename)
+      filenames.add(elements[i].settings.filename);
+  }
+  return filenames;
+}
+
 async function elements_create(args, ctx) {
   if (!args.articlePath)
     throw new Error(
@@ -986,6 +993,7 @@ async function elements_create(args, ctx) {
   var articleId = pathData.articleId;
 
   var created = [];
+  var filenames = await fetchFilenames(ctx, domainId, articleId);
 
   try {
     for (var i = 0; i < args.elements.length; i++) {
@@ -997,7 +1005,7 @@ async function elements_create(args, ctx) {
       if (spec.afterId !== undefined) {
         childArgs.afterId = resolveBatchRef(spec.afterId, created);
       }
-      var result = await element_create(childArgs, ctx);
+      var result = await element_create(childArgs, ctx, filenames);
       created.push(result);
     }
   } catch (e) {

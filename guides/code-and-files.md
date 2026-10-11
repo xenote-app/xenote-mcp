@@ -50,7 +50,7 @@ ALWAYS split code into separate files by concern. NEVER put all code in one file
 - Styles (styles.css) — always a separate CSS file
 - Sub-components — separate .jsx file for each distinct UI piece
 - Utilities/helpers — separate .js files for data, config, calculations
-If a single file would exceed 80 lines, split it.
+Keep each file under 150 lines; split it before it grows past that.
 
 ## Editing Files
 - element_patch: exact string replacements (preferred for surgical edits)
@@ -61,7 +61,7 @@ Edits use search-and-replace: provide the exact text to find (old_string) and it
 
 The edit will FAIL if old_string is not found in the content. If old_string appears more than once, include more surrounding context to make it unique, or set replace_all: true.
 
-ALWAYS call element_get first to see current content before patching.
+Call element_get first to see current content before patching — unless you just wrote or read it.
 
 ### Edit format
 Replace: { old_string: "const x = 1;", new_string: "const x = 2;" }
