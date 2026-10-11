@@ -71,7 +71,7 @@ function logAgentEvent(ctx, event) {
   ctx
     .getAgentId()
     .then(function (agentId) {
-      return ctx.provider.logEvent(ctx.uid, Object.assign({ agentId: agentId }, event));
+      return ctx.provider.logEvent(ctx.uid, Object.assign({ agentId: agentId, clientName: ctx.getClientName() }, event));
     })
     .catch(function () {});
 }

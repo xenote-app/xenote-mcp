@@ -133,6 +133,9 @@ function createMCPServer(sessionCtx) {
     functions: sessionCtx.functions,
     user: sessionCtx.user || null,
     getAgentId: getAgentId,
+    getClientName: function () {
+      return agentInfo().clientName;
+    },
   };
 
   server.setRequestHandler(ListToolsRequestSchema, function () {
@@ -180,6 +183,7 @@ function createMCPServer(sessionCtx) {
             return provider.logEvent(ctx.uid, {
               type: "toolCall",
               agentId: agentId,
+              clientName: agentInfo().clientName,
               tool: name,
               path: focusPath,
               elementId: name === "elements_create"
@@ -208,6 +212,7 @@ function createMCPServer(sessionCtx) {
           return provider.logEvent(ctx.uid, {
             type: "error",
             agentId: agentId,
+            clientName: agentInfo().clientName,
             tool: name,
             path: focusPath,
             message: String(e.message || e).slice(0, 500),
