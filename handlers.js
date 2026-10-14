@@ -752,7 +752,7 @@ function validateFileType(filename, parentType, isPulled) {
 var PULLED_CONTENT_ERROR =
   "This is a pulled file — its content comes from the machine after a box-runner run and can't be edited.";
 
-var FILE_LINE_LIMIT = 150;
+var FILE_LINE_LIMIT = 220;
 
 function fileSizeWarning(content) {
   var lineCount = (content || "").split("\n").length;

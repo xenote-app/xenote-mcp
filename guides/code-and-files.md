@@ -50,7 +50,7 @@ ALWAYS split code into separate files by concern. NEVER put all code in one file
 - Styles (styles.css) — always a separate CSS file
 - Sub-components — separate .jsx file for each distinct UI piece
 - Utilities/helpers — separate .js files for data, config, calculations
-Keep each file under 150 lines; split it before it grows past that.
+Keep each file under 220 lines; split it before it grows past that.
 
 ## Editing Files
 - element_patch: exact string replacements (preferred for surgical edits)
